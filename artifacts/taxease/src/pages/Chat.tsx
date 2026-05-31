@@ -9,21 +9,13 @@ interface Message {
 }
 
 const INITIAL_MESSAGES: Message[] = [
-  {
-    id: 1,
-    role: "user",
-    text: "What is my advance tax liability for Q1?",
-  },
+  { id: 1, role: "user", text: "What is my advance tax liability for Q1?" },
   {
     id: 2,
     role: "ai",
     text: "Based on your income so far, your Q1 advance tax (due June 15) is ₹21,125 — which is 25% of your estimated annual tax of ₹84,500. Since you've already paid ₹42,000, you may be ahead of schedule. I'd recommend paying ₹21,125 by June 15, 2025 to stay compliant.",
   },
-  {
-    id: 3,
-    role: "user",
-    text: "Can I claim my laptop as a business deduction?",
-  },
+  { id: 3, role: "user", text: "Can I claim my laptop as a business deduction?" },
   {
     id: 4,
     role: "ai",
@@ -43,7 +35,7 @@ function TypingIndicator() {
       {[0, 1, 2].map((i) => (
         <motion.div
           key={i}
-          className="w-2 h-2 rounded-full bg-muted-foreground"
+          className="w-2 h-2 rounded-full bg-[#8c8577]"
           animate={{ y: [0, -5, 0] }}
           transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.15 }}
         />
@@ -64,27 +56,27 @@ export default function Chat() {
 
   function sendMessage(text: string) {
     if (!text.trim()) return;
-    const userMsg: Message = { id: Date.now(), role: "user", text: text.trim() };
-    setMessages((prev) => [...prev, userMsg]);
+    setMessages((prev) => [...prev, { id: Date.now(), role: "user", text: text.trim() }]);
     setInput("");
     setIsTyping(true);
-
     setTimeout(() => {
       setIsTyping(false);
-      const aiReply: Message = {
-        id: Date.now() + 1,
-        role: "ai",
-        text: "Great question! Based on your financial profile for FY 2024–25, I can see your total income is ₹8,40,000 across Upwork, Swiggy, and bank interest. Under Section 44ADA, you're eligible for a 50% flat deduction, making your net taxable income ₹4,20,000. Would you like me to break down any specific aspect of your taxes?",
-      };
-      setMessages((prev) => [...prev, aiReply]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now() + 1,
+          role: "ai",
+          text: "Great question! Based on your financial profile for FY 2024–25, your total income is ₹8,40,000 across Upwork, Swiggy, and bank interest. Under Section 44ADA, you're eligible for a 50% flat deduction, making your net taxable income ₹4,20,000. Would you like me to break down any specific aspect?",
+        },
+      ]);
     }, 1800);
   }
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-6 md:px-10 pt-8 pb-4 border-b border-border shrink-0">
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white mb-1">Chat Assistant</h1>
-        <p className="text-muted-foreground text-sm">Ask anything about your taxes, deductions, or ITR filing</p>
+      <div className="px-6 md:px-10 pt-8 pb-4 border-b border-[#e8e2d5] shrink-0">
+        <h1 className="font-['Playfair_Display'] text-3xl md:text-4xl font-semibold text-[#1a1a2e] mb-1">Chat Assistant</h1>
+        <p className="text-[#6b675d] text-sm">Ask anything about your taxes, deductions, or ITR filing</p>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-4">
@@ -98,16 +90,16 @@ export default function Chat() {
               className={`flex items-end gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
             >
               {msg.role === "ai" && (
-                <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 mb-0.5">
-                  <Bot className="w-4 h-4 text-primary" />
+                <div className="w-8 h-8 rounded-full bg-[#f4ebd9] border border-[#e8e2d5] flex items-center justify-center shrink-0 mb-0.5">
+                  <Bot className="w-4 h-4 text-[#d97706]" />
                 </div>
               )}
               <div
                 data-testid={`message-${msg.id}`}
                 className={`max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
                   msg.role === "user"
-                    ? "bg-gradient-to-br from-primary to-orange-400 text-white rounded-br-sm"
-                    : "bg-card border border-border border-l-2 border-l-primary text-white rounded-bl-sm"
+                    ? "bg-[#d97706] text-white rounded-br-sm"
+                    : "bg-[#fdfbf7] border border-[#e8e2d5] border-l-2 border-l-[#d97706] text-[#1a1a2e] rounded-bl-sm"
                 }`}
               >
                 {msg.text}
@@ -122,10 +114,10 @@ export default function Chat() {
             animate={{ opacity: 1, y: 0 }}
             className="flex items-end gap-3 justify-start"
           >
-            <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-              <Bot className="w-4 h-4 text-primary" />
+            <div className="w-8 h-8 rounded-full bg-[#f4ebd9] border border-[#e8e2d5] flex items-center justify-center shrink-0">
+              <Bot className="w-4 h-4 text-[#d97706]" />
             </div>
-            <div className="bg-card border border-border border-l-2 border-l-primary rounded-2xl rounded-bl-sm">
+            <div className="bg-[#fdfbf7] border border-[#e8e2d5] border-l-2 border-l-[#d97706] rounded-2xl rounded-bl-sm">
               <TypingIndicator />
             </div>
           </motion.div>
@@ -140,14 +132,14 @@ export default function Chat() {
               key={s}
               onClick={() => sendMessage(s)}
               data-testid={`suggestion-${s.slice(0, 15).replace(/\s/g, "-").toLowerCase()}`}
-              className="text-xs px-3 py-1.5 rounded-full bg-white/5 border border-border text-muted-foreground hover:text-white hover:border-primary/40 hover:bg-primary/5 transition-colors"
+              className="text-xs px-3 py-1.5 rounded-full border border-[#e8e2d5] text-[#6b675d] hover:text-[#1a1a2e] hover:border-[#d97706]/40 hover:bg-[#f4ebd9]/30 transition-colors"
             >
               {s}
             </button>
           ))}
         </div>
 
-        <div className="flex items-center gap-3 bg-card border border-border rounded-full px-4 py-2 focus-within:border-primary/50 transition-colors">
+        <div className="flex items-center gap-3 bg-[#fdfbf7] border border-[#e8e2d5] rounded-full px-4 py-2 focus-within:border-[#d97706]/50 transition-colors">
           <input
             type="text"
             value={input}
@@ -155,13 +147,13 @@ export default function Chat() {
             onKeyDown={(e) => e.key === "Enter" && sendMessage(input)}
             placeholder="Ask about your taxes..."
             data-testid="chat-input"
-            className="flex-1 bg-transparent text-white text-sm placeholder:text-muted-foreground outline-none"
+            className="flex-1 bg-transparent text-[#1a1a2e] text-sm placeholder:text-[#8c8577] outline-none"
           />
           <button
             onClick={() => sendMessage(input)}
             disabled={!input.trim()}
             data-testid="send-button"
-            className="w-8 h-8 rounded-full bg-primary hover:bg-primary/90 flex items-center justify-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+            className="w-8 h-8 rounded-full bg-[#d97706] hover:bg-[#b46204] flex items-center justify-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
           >
             <Send className="w-4 h-4 text-white" />
           </button>

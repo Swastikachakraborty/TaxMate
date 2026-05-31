@@ -11,8 +11,6 @@ import TaxSummary from "@/pages/TaxSummary";
 import Chat from "@/pages/Chat";
 import ItrExport from "@/pages/ItrExport";
 
-document.documentElement.classList.add("dark");
-
 const queryClient = new QueryClient();
 
 function Router() {

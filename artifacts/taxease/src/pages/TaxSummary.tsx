@@ -1,6 +1,4 @@
 import { motion } from "framer-motion";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { FileText, Calendar, TrendingUp, IndianRupee } from "lucide-react";
 
 const TAX_SLABS = [
@@ -21,7 +19,7 @@ const ADVANCE_TAX = [
 
 function TaxArc({ percentage }: { percentage: number }) {
   const radius = 80;
-  const strokeWidth = 12;
+  const strokeWidth = 10;
   const circumference = Math.PI * radius;
   const filled = circumference * (percentage / 100);
   const gap = circumference - filled;
@@ -33,23 +31,22 @@ function TaxArc({ percentage }: { percentage: number }) {
       <path
         d={`M ${cx - radius} ${cy} A ${radius} ${radius} 0 0 1 ${cx + radius} ${cy}`}
         fill="none"
-        stroke="hsl(0 0% 12%)"
+        stroke="#e8e2d5"
         strokeWidth={strokeWidth}
         strokeLinecap="round"
       />
       <path
         d={`M ${cx - radius} ${cy} A ${radius} ${radius} 0 0 1 ${cx + radius} ${cy}`}
         fill="none"
-        stroke="hsl(25 95% 53%)"
+        stroke="#d97706"
         strokeWidth={strokeWidth}
         strokeLinecap="round"
         strokeDasharray={`${filled} ${gap}`}
-        style={{ filter: "drop-shadow(0 0 8px hsl(25 95% 53% / 0.6))" }}
       />
-      <text x={cx} y={cy - 18} textAnchor="middle" fill="white" fontSize="28" fontWeight="700" fontFamily="Inter">
+      <text x={cx} y={cy - 18} textAnchor="middle" fill="#1a1a2e" fontSize="28" fontWeight="700" fontFamily="'Playfair Display', serif">
         {percentage}%
       </text>
-      <text x={cx} y={cy - 2} textAnchor="middle" fill="hsl(240 5% 46%)" fontSize="12" fontFamily="Inter">
+      <text x={cx} y={cy - 2} textAnchor="middle" fill="#8c8577" fontSize="12" fontFamily="Inter, sans-serif">
         of income as tax
       </text>
     </svg>
@@ -57,135 +54,134 @@ function TaxArc({ percentage }: { percentage: number }) {
 }
 
 export default function TaxSummary() {
+  const BREAKDOWN = [
+    { label: "Gross Income", value: "₹8,40,000", icon: TrendingUp, sub: "Upwork + Swiggy + Bank Interest", accent: "#d97706" },
+    { label: "Standard Deduction (44ADA)", value: "₹4,20,000", icon: IndianRupee, sub: "50% of gross receipts", accent: "#1a1a2e" },
+    { label: "Net Taxable Income", value: "₹4,20,000", icon: IndianRupee, sub: "After 44ADA presumptive deduction", accent: "#059669" },
+    { label: "Total Tax + Cess", value: "₹84,500", icon: FileText, sub: "Including 4% health & education cess", accent: "#b45309" },
+  ];
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      className="p-6 md:p-10 max-w-5xl mx-auto space-y-8"
+      className="max-w-5xl mx-auto px-6 md:px-10 py-10 pb-20 md:pb-10 space-y-8"
     >
       <header className="flex items-start justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white mb-2">Tax Summary</h1>
-          <p className="text-muted-foreground">Your complete tax picture for FY 2024–25 (New Tax Regime)</p>
+          <p className="text-sm font-medium text-[#d97706] tracking-wide uppercase mb-2">FY 2024–2025</p>
+          <h1 className="font-['Playfair_Display'] text-4xl font-semibold text-[#1a1a2e] mb-2">Tax Summary</h1>
+          <p className="text-[#6b675d]">Your complete tax picture — New Tax Regime</p>
         </div>
-        <Badge className="bg-secondary/10 text-secondary border-secondary/20 px-3 py-1.5 text-sm font-medium">
-          <FileText className="w-4 h-4 mr-1.5 inline" />
+        <div className="flex items-center gap-2 px-4 py-2 rounded-full border border-[#e8e2d5] bg-[#fdfbf7] text-sm font-medium text-[#1a1a2e]">
+          <FileText className="w-4 h-4 text-[#d97706]" />
           You likely need ITR-4
-        </Badge>
+        </div>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="col-span-1 bg-card border-border flex flex-col items-center py-8 px-4">
-          <p className="text-sm font-medium text-muted-foreground mb-4">Live Tax Liability</p>
+        <div className="rounded-2xl border border-[#e8e2d5] bg-transparent flex flex-col items-center py-8 px-4">
+          <p className="text-xs font-semibold text-[#6b675d] uppercase tracking-wider mb-4">Live Tax Liability</p>
           <TaxArc percentage={10} />
-          <p className="mt-4 text-2xl font-bold text-white">₹84,500</p>
-          <p className="text-sm text-muted-foreground mt-1">Total Tax Payable</p>
-        </Card>
+          <p className="mt-4 font-['Playfair_Display'] text-3xl font-semibold text-[#1a1a2e]">₹84,500</p>
+          <p className="text-sm text-[#8c8577] mt-1">Total Tax Payable</p>
+        </div>
 
         <div className="col-span-1 lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {[
-            { label: "Gross Income", value: "₹8,40,000", icon: TrendingUp, sub: "Upwork + Swiggy + Bank Interest", color: "text-primary" },
-            { label: "Standard Deduction (44ADA)", value: "₹4,20,000", icon: IndianRupee, sub: "50% of gross receipts", color: "text-secondary" },
-            { label: "Net Taxable Income", value: "₹4,20,000", icon: IndianRupee, sub: "After 44ADA presumptive deduction", color: "text-green-500" },
-            { label: "Total Tax + Cess", value: "₹84,500", icon: FileText, sub: "Including 4% health & education cess", color: "text-orange-400" },
-          ].map((item, i) => (
+          {BREAKDOWN.map((item, i) => (
             <motion.div
               key={i}
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.07 }}
+              transition={{ delay: i * 0.06 }}
+              className="rounded-2xl border border-[#e8e2d5] p-5"
             >
-              <Card className="bg-card border-border h-full">
-                <CardContent className="p-5">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className={`p-1.5 rounded bg-white/5 ${item.color}`}>
-                      <item.icon className="w-4 h-4" />
-                    </div>
-                    <p className="text-xs font-medium text-muted-foreground">{item.label}</p>
-                  </div>
-                  <p className="text-2xl font-bold text-white">{item.value}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{item.sub}</p>
-                </CardContent>
-              </Card>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="p-1.5 rounded-lg bg-[#f4ebd9]/50" style={{ color: item.accent }}>
+                  <item.icon className="w-4 h-4" />
+                </div>
+                <p className="text-xs font-medium text-[#6b675d]">{item.label}</p>
+              </div>
+              <p className="font-['Playfair_Display'] text-2xl font-semibold text-[#1a1a2e]">{item.value}</p>
+              <p className="text-xs text-[#8c8577] mt-1">{item.sub}</p>
             </motion.div>
           ))}
         </div>
       </div>
 
-      <Card className="bg-card border-border">
-        <CardContent className="p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Tax Slab Breakdown (New Regime FY 2024–25)</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm" data-testid="tax-slabs-table">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left py-2 pr-4 font-medium text-muted-foreground">Income Slab</th>
-                  <th className="text-left py-2 pr-4 font-medium text-muted-foreground">Rate</th>
-                  <th className="text-right py-2 pr-4 font-medium text-muted-foreground">Taxable Amount</th>
-                  <th className="text-right py-2 font-medium text-muted-foreground">Tax</th>
+      <div className="rounded-2xl border border-[#e8e2d5] p-6">
+        <h3 className="font-['Playfair_Display'] text-xl font-semibold text-[#1a1a2e] mb-5">Tax Slab Breakdown (New Regime FY 2024–25)</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm" data-testid="tax-slabs-table">
+            <thead>
+              <tr className="border-b border-[#e8e2d5]">
+                <th className="text-left py-2 pr-4 font-medium text-[#8c8577]">Income Slab</th>
+                <th className="text-left py-2 pr-4 font-medium text-[#8c8577]">Rate</th>
+                <th className="text-right py-2 pr-4 font-medium text-[#8c8577]">Taxable Amount</th>
+                <th className="text-right py-2 font-medium text-[#8c8577]">Tax</th>
+              </tr>
+            </thead>
+            <tbody>
+              {TAX_SLABS.map((slab, i) => (
+                <tr key={i} className="border-b border-[#e8e2d5]/60 last:border-0">
+                  <td className="py-3 pr-4 text-[#1a1a2e]">{slab.range}</td>
+                  <td className="py-3 pr-4">
+                    <span className={`font-semibold ${slab.rate === "0%" ? "text-[#8c8577]" : "text-[#d97706]"}`}>
+                      {slab.rate}
+                    </span>
+                  </td>
+                  <td className="py-3 pr-4 text-right text-[#1a1a2e] font-mono">{slab.taxable}</td>
+                  <td className="py-3 text-right font-mono font-semibold text-[#1a1a2e]">{slab.tax}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {TAX_SLABS.map((slab, i) => (
-                  <tr key={i} className="border-b border-border/50 last:border-0">
-                    <td className="py-3 pr-4 text-white">{slab.range}</td>
-                    <td className="py-3 pr-4">
-                      <span className={`font-medium ${slab.rate === "0%" ? "text-muted-foreground" : "text-primary"}`}>
-                        {slab.rate}
-                      </span>
-                    </td>
-                    <td className="py-3 pr-4 text-right text-white font-mono">{slab.taxable}</td>
-                    <td className="py-3 text-right font-mono font-semibold text-white">{slab.tax}</td>
-                  </tr>
-                ))}
-                <tr className="bg-primary/5">
-                  <td colSpan={3} className="py-3 pr-4 font-bold text-white">Total Tax + 4% Cess</td>
-                  <td className="py-3 text-right font-bold text-primary font-mono text-base">₹84,500</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+              ))}
+              <tr className="bg-[#f4ebd9]/40">
+                <td colSpan={3} className="py-3 pr-4 font-semibold text-[#1a1a2e]">Total Tax + 4% Cess</td>
+                <td className="py-3 text-right font-bold text-[#d97706] font-mono text-base">₹84,500</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-      <Card className="bg-card border-border">
-        <CardContent className="p-6">
-          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-primary" />
-            Advance Tax Installments
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {ADVANCE_TAX.map((item, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.08 }}
-                className={`p-4 rounded-xl border transition-colors ${
+      <div className="rounded-2xl border border-[#e8e2d5] p-6">
+        <h3 className="font-['Playfair_Display'] text-xl font-semibold text-[#1a1a2e] mb-5 flex items-center gap-2">
+          <Calendar className="w-5 h-5 text-[#d97706]" />
+          Advance Tax Installments
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {ADVANCE_TAX.map((item, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.07 }}
+              className={`p-4 rounded-xl border transition-colors relative overflow-hidden ${
+                item.status === "Due"
+                  ? "border-[#d97706]/40 bg-[#fdf8ee]"
+                  : "border-[#e8e2d5] bg-transparent"
+              }`}
+              data-testid={`advance-tax-${i}`}
+            >
+              {item.status === "Due" && (
+                <div className="absolute top-0 left-0 right-0 h-[2px] bg-[#d97706]" />
+              )}
+              <p className="text-xs font-medium text-[#8c8577] mb-1">{item.installment}</p>
+              <p className="font-['Playfair_Display'] text-xl font-semibold text-[#1a1a2e]">{item.amount}</p>
+              <p className="text-xs text-[#8c8577] mt-1">{item.dueDate}</p>
+              <div className="mt-2 flex items-center justify-between">
+                <span className="text-xs text-[#8c8577]">{item.percent} of annual</span>
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                   item.status === "Due"
-                    ? "bg-primary/10 border-primary/30"
-                    : "bg-white/3 border-border"
-                }`}
-                data-testid={`advance-tax-${i}`}
-              >
-                <p className="text-xs font-medium text-muted-foreground mb-1">{item.installment}</p>
-                <p className="text-lg font-bold text-white">{item.amount}</p>
-                <p className="text-xs text-muted-foreground mt-1">{item.dueDate}</p>
-                <div className="mt-2 flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">{item.percent} of annual</span>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                    item.status === "Due"
-                      ? "bg-orange-500/20 text-orange-400"
-                      : "bg-white/5 text-muted-foreground"
-                  }`}>
-                    {item.status}
-                  </span>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+                    ? "bg-[#d97706]/15 text-[#b46204]"
+                    : "bg-[#f4ebd9]/60 text-[#8c8577]"
+                }`}>
+                  {item.status}
+                </span>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </div>
     </motion.div>
   );
 }
