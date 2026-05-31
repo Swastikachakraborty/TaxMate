@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "TaxEase"
+version = "1.0.0"
+id = "artifacts/taxease"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 21242
+
+[services.development]
+run = "pnpm --filter @workspace/taxease run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/taxease", "run", "build" ]
+publicDir = "artifacts/taxease/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21242"
+BASE_PATH = "/"
