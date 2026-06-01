@@ -1,4 +1,4 @@
-# GigSaathi 🤝
+# GigSaathi
 
 > **Agentic AI-powered tax & compliance assistant for India's gig economy workers**
 
@@ -9,26 +9,26 @@
 
 ---
 
-## 🎯 The Problem
+##  The Problem
 
 India has **15 crore+ gig workers** — Swiggy delivery partners, Uber drivers, Upwork freelancers, Fiverr designers — many earning from 4-5 platforms simultaneously. Each platform generates income in different formats, with different TDS deductions, different payout cycles, and **zero unified view** of total earnings.
 
 The result? Workers **overpay tax**, miss advance tax deadlines, receive IT notices they don't understand, or pay CAs they can't afford — just to file a basic ITR.
 
-## 💡 The Solution
+##  The Solution
 
 GigSaathi lets workers upload their earnings PDFs from any platform, and the system does everything else automatically:
 
-- **📄 Upload PDFs** — Swiggy payout statements, Uber trip summaries, Upwork invoices, bank statements
-- **🤖 AI Extraction** — Gemini parses PDFs and extracts structured income data
-- **🔗 Deduplication** — Detects duplicate transactions across platform PDFs and bank statements
-- **📊 Unified Dashboard** — See all earnings in one place, broken down by platform and month
-- **💰 Tax Calculation** — Accurate FY 2025-26 tax computation with Section 44ADA presumptive taxation
-- **📋 ITR-4 Ready** — Generates a field-by-field ITR-4 (Sugam) summary for filing
-- **💬 AI Chat** — Ask anything about your tax situation in natural language
-- **⏰ Deadline Alerts** — Proactive advance tax deadline reminders
+- ** Upload PDFs** — Swiggy payout statements, Uber trip summaries, Upwork invoices, bank statements
+- ** AI Extraction** — Gemini parses PDFs and extracts structured income data
+- ** Deduplication** — Detects duplicate transactions across platform PDFs and bank statements
+- ** Unified Dashboard** — See all earnings in one place, broken down by platform and month
+- ** Tax Calculation** — Accurate FY 2025-26 tax computation with Section 44ADA presumptive taxation
+- ** ITR-4 Ready** — Generates a field-by-field ITR-4 (Sugam) summary for filing
+- ** AI Chat** — Ask anything about your tax situation in natural language
+- ** Deadline Alerts** — Proactive advance tax deadline reminders
 
-## 🏗️ Architecture
+##  Architecture
 
 ```
 ┌─────────────────────────────────────────────────┐
@@ -56,7 +56,7 @@ GigSaathi lets workers upload their earnings PDFs from any platform, and the sys
     └─────────┘
 ```
 
-## 🛠️ Tech Stack
+##  Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
@@ -69,7 +69,7 @@ GigSaathi lets workers upload their earnings PDFs from any platform, and the sys
 | **PDF Parsing** | Gemini Multimodal (Vision) |
 | **Deployment** | Google Cloud Run |
 
-## 🚀 Getting Started
+##  Getting Started
 
 ### Prerequisites
 
@@ -134,7 +134,7 @@ The frontend will be at `http://localhost:3000`.
 | `HOST` | Server host (default: 0.0.0.0) | Optional |
 | `ENV` | Environment (development/production) | Optional |
 
-## 📡 API Endpoints
+##  API Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -149,7 +149,7 @@ The frontend will be at `http://localhost:3000`.
 | `POST` | `/api/v1/users` | Create a user profile |
 | `GET` | `/api/v1/users/{user_id}` | Get user profile |
 
-## 🤖 Agent Tools
+##  Agent Tools
 
 The Gemini agent has 5 callable tools:
 
@@ -159,7 +159,7 @@ The Gemini agent has 5 callable tools:
 4. **`generate_itr_summary()`** — Produces ITR-4 field mapping
 5. **`check_deadlines()`** — Alerts on advance tax dates
 
-## 🔮 Future Scope
+##  Future Scope
 
 - **Account Aggregator (AA) Integration** — Auto-fetch bank statements via India Stack
 - **Multi-language Support** — Hindi, Telugu, Tamil, Kannada
