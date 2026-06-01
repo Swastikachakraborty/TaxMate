@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 
+import certifi
 import pymongo
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection, AsyncIOMotorDatabase
 
@@ -39,7 +40,10 @@ class MongoDB:
             ConnectionError: If the server is unreachable.
         """
         logger.info("Connecting to MongoDB …")
-        self.client = AsyncIOMotorClient(settings.MONGODB_URI)
+        self.client = AsyncIOMotorClient(
+            settings.MONGODB_URI,
+            tlsCAFile=certifi.where(),
+        )
         # Force a round-trip so we fail fast on bad URI / unreachable server
         await self.client.admin.command("ping")
         logger.info("MongoDB connection established.")
