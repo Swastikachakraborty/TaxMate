@@ -113,10 +113,10 @@ API docs at `http://localhost:8000/docs`.
 cd gigsaathi/frontend
 
 # Install dependencies
-npm install
+bun install
 
 # Run dev server
-npm run dev
+bun run dev 
 ```
 
 The frontend will be at `http://localhost:3000`.
