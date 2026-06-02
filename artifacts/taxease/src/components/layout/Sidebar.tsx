@@ -1,31 +1,39 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, UploadCloud, PieChart, MessageSquare, Download, CheckCircle2 } from "lucide-react";
+import { LayoutDashboard, UploadCloud, PieChart, MessageSquare, Download, CheckCircle2, LogOut } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+
+const NAV = [
+  { name: "Dashboard",     path: "/app",             icon: LayoutDashboard },
+  { name: "Upload PDFs",   path: "/app/upload",      icon: UploadCloud },
+  { name: "Tax Summary",   path: "/app/tax-summary", icon: PieChart },
+  { name: "Chat Assistant",path: "/app/chat",         icon: MessageSquare },
+  { name: "ITR Export",    path: "/app/itr-export",  icon: Download },
+];
 
 export default function Sidebar() {
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
+  const { user, logout } = useAuth();
 
-  const navItems = [
-    { name: "Dashboard", path: "/", icon: LayoutDashboard },
-    { name: "Upload PDFs", path: "/upload", icon: UploadCloud },
-    { name: "Tax Summary", path: "/tax-summary", icon: PieChart },
-    { name: "Chat Assistant", path: "/chat", icon: MessageSquare },
-    { name: "ITR Export", path: "/itr-export", icon: Download },
-  ];
+  function handleLogout() {
+    logout();
+    navigate("/");
+  }
 
   return (
     <>
+      {/* Desktop sidebar */}
       <aside className="hidden md:flex flex-col w-[220px] h-full shrink-0 border-r border-[#e8e2d5] bg-[#fdfbf7] py-8 px-6 justify-between">
         <div>
-          <div className="mb-12">
-            <span className="font-['Playfair_Display'] text-2xl font-bold tracking-tight text-[#1a1a2e]">
+          <Link href="/">
+            <span className="font-['Playfair_Display'] text-2xl font-bold tracking-tight text-[#1a1a2e] mb-12 block cursor-pointer hover:text-[#d97706] transition-colors">
               TaxEase.
             </span>
-          </div>
+          </Link>
 
-          <nav className="space-y-1">
-            {navItems.map((item) => {
+          <nav className="space-y-1 mt-4">
+            {NAV.map((item) => {
               const Icon = item.icon;
-              const isActive = location === item.path;
+              const isActive = location === item.path || (item.path !== "/app" && location.startsWith(item.path));
               return (
                 <Link key={item.path} href={item.path}>
                   <div
@@ -53,21 +61,30 @@ export default function Sidebar() {
               ITR-4 Ready
             </p>
           </div>
-          <div className="px-3 py-2">
-            <p className="text-sm font-semibold text-[#1a1a2e]">Priya Sharma</p>
-            <p className="text-xs text-[#8c8577]">FY 2024–25</p>
+          <div className="flex items-center justify-between px-3 py-2">
+            <div>
+              <p className="text-sm font-semibold text-[#1a1a2e]">{user?.name ?? "—"}</p>
+              <p className="text-xs text-[#8c8577]">FY 2024–25</p>
+            </div>
+            <button
+              onClick={handleLogout}
+              title="Sign out"
+              className="p-1.5 rounded-lg text-[#8c8577] hover:text-red-400 hover:bg-red-50 transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </aside>
 
       {/* Mobile bottom nav */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#fdfbf7] border-t border-[#e8e2d5] flex items-center justify-around px-2 z-50">
-        {navItems.map((item) => {
+        {NAV.map((item) => {
           const Icon = item.icon;
-          const isActive = location === item.path;
+          const isActive = location === item.path || (item.path !== "/app" && location.startsWith(item.path));
           return (
             <Link key={item.path} href={item.path}>
-              <div className={`flex flex-col items-center justify-center w-16 h-full gap-1 ${isActive ? "text-[#d97706]" : "text-[#8c8577]"}`}>
+              <div className={`flex flex-col items-center justify-center w-14 h-full gap-1 ${isActive ? "text-[#d97706]" : "text-[#8c8577]"}`}>
                 <Icon className="w-5 h-5" />
                 <span className="text-[10px] font-medium leading-none">{item.name.split(" ")[0]}</span>
               </div>
