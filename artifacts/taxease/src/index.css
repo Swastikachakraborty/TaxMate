@@ -133,3 +133,23 @@
     @apply font-sans antialiased bg-background text-foreground;
   }
 }
+
+.financial-num {
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
+}
+
+.label-caps {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #8c8577;
+  font-weight: 600;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #faf7f2; }
+::-webkit-scrollbar-thumb { background: #e8e2d5; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #8c8577; }
+
+::selection { background: rgba(217, 119, 6, 0.15); }

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Send, Bot } from "lucide-react";
+import { chatMessages as initialMessages, formatINR } from "@/lib/data";
 
 interface Message {
   id: number;
@@ -8,26 +9,39 @@ interface Message {
   text: string;
 }
 
-const INITIAL_MESSAGES: Message[] = [
-  { id: 1, role: "user", text: "What is my advance tax liability for Q1?" },
-  {
-    id: 2,
-    role: "ai",
-    text: "Based on your income so far, your Q1 advance tax (due June 15) is ₹21,125 — which is 25% of your estimated annual tax of ₹84,500. Since you've already paid ₹42,000, you may be ahead of schedule. I'd recommend paying ₹21,125 by June 15, 2025 to stay compliant.",
-  },
-  { id: 3, role: "user", text: "Can I claim my laptop as a business deduction?" },
-  {
-    id: 4,
-    role: "ai",
-    text: "Yes! Under Section 44ADA (Presumptive Taxation for professionals), 50% of your gross receipts is deemed as expenses — this covers your laptop, internet, and all other business expenses. You don't need to maintain separate records or receipts for individual items. Your deduction is already calculated as ₹4,20,000 (50% of ₹8,40,000).",
-  },
-];
-
 const SUGGESTIONS = [
   "What's my advance tax due?",
   "Can I claim laptop as deduction?",
   "When is my next ITR deadline?",
 ];
+
+function RichText({ text }: { text: string }) {
+  return (
+    <div className="space-y-1.5">
+      {text.split("\n").map((line, i) => {
+        if (!line.trim()) return <div key={i} className="h-1" />;
+
+        // Parse **bold** inline
+        const parts: React.ReactNode[] = [];
+        const boldRe = /\*\*(.*?)\*\*/g;
+        let last = 0;
+        let m: RegExpExecArray | null;
+        while ((m = boldRe.exec(line)) !== null) {
+          if (m.index > last) parts.push(line.slice(last, m.index));
+          parts.push(<strong key={m.index} className="font-bold text-inherit">{m[1]}</strong>);
+          last = m.index + m[0].length;
+        }
+        if (last < line.length) parts.push(line.slice(last));
+
+        return (
+          <p key={i} className="leading-relaxed">
+            {parts.length > 0 ? parts : line}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
 
 function TypingIndicator() {
   return (
@@ -44,8 +58,12 @@ function TypingIndicator() {
   );
 }
 
+const AI_REPLY = `Great question! Based on your financial profile for FY 2024–25:\n\n**Gross Income:** ${formatINR(840000)}\n• Upwork: ${formatINR(520000)}\n• Swiggy: ${formatINR(210000)}\n• Bank Interest: ${formatINR(10000)}\n\nUnder **Section 44ADA**, you're eligible for a 50% flat deduction, making your net taxable income ${formatINR(420000)}.\n\nWould you like me to break down any specific aspect of your taxes?`;
+
 export default function Chat() {
-  const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
+  const [messages, setMessages] = useState<Message[]>(
+    initialMessages.map((m) => ({ ...m, id: m.id }))
+  );
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -61,14 +79,7 @@ export default function Chat() {
     setIsTyping(true);
     setTimeout(() => {
       setIsTyping(false);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now() + 1,
-          role: "ai",
-          text: "Great question! Based on your financial profile for FY 2024–25, your total income is ₹8,40,000 across Upwork, Swiggy, and bank interest. Under Section 44ADA, you're eligible for a 50% flat deduction, making your net taxable income ₹4,20,000. Would you like me to break down any specific aspect?",
-        },
-      ]);
+      setMessages((prev) => [...prev, { id: Date.now() + 1, role: "ai", text: AI_REPLY }]);
     }, 1800);
   }
 
@@ -79,7 +90,7 @@ export default function Chat() {
         <p className="text-[#6b675d] text-sm">Ask anything about your taxes, deductions, or ITR filing</p>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-4">
+      <div className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-5">
         <AnimatePresence initial={false}>
           {messages.map((msg) => (
             <motion.div
@@ -96,24 +107,20 @@ export default function Chat() {
               )}
               <div
                 data-testid={`message-${msg.id}`}
-                className={`max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                className={`max-w-[75%] rounded-2xl px-4 py-3 text-sm ${
                   msg.role === "user"
                     ? "bg-[#d97706] text-white rounded-br-sm"
                     : "bg-[#fdfbf7] border border-[#e8e2d5] border-l-2 border-l-[#d97706] text-[#1a1a2e] rounded-bl-sm"
                 }`}
               >
-                {msg.text}
+                <RichText text={msg.text} />
               </div>
             </motion.div>
           ))}
         </AnimatePresence>
 
         {isTyping && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex items-end gap-3 justify-start"
-          >
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-end gap-3">
             <div className="w-8 h-8 rounded-full bg-[#f4ebd9] border border-[#e8e2d5] flex items-center justify-center shrink-0">
               <Bot className="w-4 h-4 text-[#d97706]" />
             </div>
@@ -138,7 +145,6 @@ export default function Chat() {
             </button>
           ))}
         </div>
-
         <div className="flex items-center gap-3 bg-[#fdfbf7] border border-[#e8e2d5] rounded-full px-4 py-2 focus-within:border-[#d97706]/50 transition-colors">
           <input
             type="text"
