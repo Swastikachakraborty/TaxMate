@@ -1,0 +1,92 @@
+Here's your Antigravity prompt — copy and paste this whole thing:
+
+---
+
+**TASK: Build the complete TaxEase frontend**
+
+You are building the frontend for **TaxEase** — an AI-powered tax assistant for Indian freelancers (Swiggy, Upwork, Uber drivers, etc.) that parses income PDFs, calculates tax liability, and lets users chat with a Gemini AI agent about their taxes.
+
+**Stack:** Next.js 14 (App Router), Tailwind CSS, Recharts for charts, Framer Motion for animations. This is already a cloned repo — scaffold inside it.
+
+---
+
+**DESIGN SYSTEM — Inspired by Anthropic/Linear/Vercel:**
+- Background: `#0a0a0a` (near black)
+- Surface cards: `#111111` with `1px solid #1e1e1e` borders
+- Primary accent: `#f97316` (orange — representing tax/money energy)
+- Secondary accent: `#6366f1` (indigo)
+- Text primary: `#fafafa`, text muted: `#71717a`
+- Font: Inter (import from Google Fonts)
+- Border radius: `12px` on cards, `8px` on inputs
+- Subtle gradients: `from-orange-500/10 to-indigo-500/10` on hero sections
+- Glassmorphism on sidebar: `backdrop-blur-md bg-white/5`
+
+---
+
+**PAGES & COMPONENTS TO BUILD:**
+
+**1. Layout — `app/layout.tsx`**
+Sidebar navigation (fixed left, 240px wide) with:
+- TaxEase logo (orange lightning bolt icon + wordmark)
+- Nav items with icons: Dashboard, Upload PDFs, Tax Summary, Chat Assistant, ITR Export
+- Active state: orange left border + subtle orange background
+- Bottom: user avatar placeholder + "FY 2024–25" badge
+
+**2. Dashboard Page — `app/page.tsx`**
+- Top greeting: "Good morning, Freelancer 👋" in large text
+- 4 stat cards in a grid: Total Income, Tax Liability, Advance Tax Due, Next Deadline — each with icon, value, and a subtle colored glow
+- Monthly income bar chart (Recharts) with fake data — dark themed, orange bars
+- Recent uploads table — 3 rows with filename, platform (Swiggy/Upwork/Bank), date, status badge (Parsed ✓)
+
+**3. PDF Upload Page — `app/upload/page.tsx`**
+- Large drag-and-drop zone: dashed border, upload icon, "Drop your income PDFs here" — animates on hover with Framer Motion scale
+- Platform selector pills below: Swiggy · Upwork · Uber · Bank Statement · Other
+- File list after upload: filename, size, animated progress bar, green checkmark when done
+- "Parse with AI" CTA button — orange gradient, full width
+
+**4. Tax Summary Page — `app/tax-summary/page.tsx`**
+- "Live Tax Liability" meter — large circular progress arc in orange showing % of income as tax
+- Breakdown cards: Gross Income, Standard Deduction (44ADA — 50%), Net Taxable, Tax Slabs breakdown (0–3L: nil, 3–7L: 5%, etc.), Total Tax, Advance Tax installments with dates
+- ITR form recommendation badge: "You likely need ITR-4"
+
+**5. Chat Page — `app/chat/page.tsx`**
+- Full height chat layout, messages on right (user) and left (AI with small bot avatar)
+- AI message bubbles: dark card style with subtle left orange border
+- User bubbles: orange gradient
+- Typing indicator: 3 animated dots
+- Suggested question chips above input: "What's my advance tax due?", "Can I claim laptop as deduction?", "When is my next ITR deadline?"
+- Input bar at bottom: pill-shaped, dark, send button in orange
+- Hardcode 2–3 sample messages showing a realistic tax Q&A conversation
+
+**6. ITR Export Page — `app/itr-export/page.tsx`**
+- Summary card showing all calculated fields
+- Big "Generate PDF Summary" button
+- Below it: a mock preview of the PDF (white card with TaxEase header, user details, income breakdown table)
+- Download button with animated success state
+
+---
+
+**GLOBAL DETAILS:**
+- All pages use the same sidebar layout
+- Add smooth page transitions with Framer Motion
+- Every empty/loading state should have a skeleton loader (dark shimmer)
+- Mobile responsive — sidebar collapses to bottom nav on mobile
+- No actual API calls needed — use hardcoded realistic fake data throughout (Indian rupee amounts, real platform names, real Indian tax slab values for FY 2024–25)
+- Use `lucide-react` for all icons
+
+---
+
+**FAKE DATA TO USE:**
+- User: Priya Sharma, freelance designer + Swiggy delivery
+- Total income: ₹8,40,000 (Upwork ₹5,20,000 + Swiggy ₹2,10,000 + Bank interest ₹10,000)
+- Tax liability: ₹84,500
+- Advance tax paid: ₹42,000
+- Next deadline: June 15, 2025
+
+---
+
+Build all pages and components. Make it look like a premium, dark-mode SaaS product. Think Linear meets Anthropic meets a fintech app.
+
+---
+
+Once it generates, share your `localhost:3000` preview and ping Person A for the API endpoint list so you can swap the fake data for real calls!
