@@ -79,6 +79,12 @@ function Router() {
       <Route path="/sign-up" component={Register} />
       <Route path="/login">{() => <Redirect to="/sign-in" />}</Route>
       <Route path="/register">{() => <Redirect to="/sign-up" />}</Route>
+      {/* Convenience redirects — typing /itr-export etc. forwards to the real route */}
+      <Route path="/itr-export">{() => <Redirect to="/app/itr-export" />}</Route>
+      <Route path="/tax-summary">{() => <Redirect to="/app/tax-summary" />}</Route>
+      <Route path="/upload">{() => <Redirect to="/app/upload" />}</Route>
+      <Route path="/chat">{() => <Redirect to="/app/chat" />}</Route>
+      <Route path="/dashboard">{() => <Redirect to="/app" />}</Route>
       <Route path="/app/:rest*" component={ProtectedApp} />
       <Route path="/app" component={ProtectedApp} />
       <Route component={NotFound} />
