@@ -31,6 +31,11 @@ async def get_tax_calculation(user_id: str):
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])
 
+    # Add field aliases the frontend Dashboard expects
+    result["deduction_44ada"] = result.get("presumptive_income") or 0
+    result["net_taxable_income"] = result.get("taxable_income", 0)
+    # gross_income is already in result
+
     return result
 
 

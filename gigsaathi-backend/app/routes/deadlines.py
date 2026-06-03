@@ -31,4 +31,36 @@ async def get_deadlines(user_id: str):
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])
 
-    return result
+    # Normalize to match frontend expectations:
+    # backend returns "deadlines" array, frontend expects "installments"
+    raw_deadlines = result.get("deadlines", [])
+    installments = []
+    for d in raw_deadlines:
+        installments.append({
+            "installment": d.get("installment", ""),
+            "due_date": d.get("due_date", ""),
+            "cumulative_percent": d.get("cumulative_percent", 0),
+            "amount_due": d.get("amount_due", 0),
+            "status": "paid" if d.get("is_past") else ("due" if d.get("days_remaining", 99) <= 30 else "upcoming"),
+            "days_remaining": d.get("days_remaining"),
+            "alert_level": d.get("alert_level", "ok"),
+        })
+
+    # Normalize next_deadline
+    next_dl = result.get("next_deadline")
+    if next_dl:
+        next_dl = {
+            "installment": next_dl.get("installment", ""),
+            "due_date": next_dl.get("due_date", ""),
+            "cumulative_percent": next_dl.get("cumulative_percent", 0),
+            "amount_due": next_dl.get("amount_due", 0),
+            "status": "due" if not next_dl.get("is_past") else "paid",
+            "days_remaining": next_dl.get("days_remaining"),
+            "alert_level": result.get("alert_level", "ok"),
+        }
+
+    return {
+        **result,
+        "installments": installments,
+        "next_deadline": next_dl,
+    }

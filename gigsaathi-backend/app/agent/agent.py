@@ -226,7 +226,7 @@ class GigSaathiAgent:
         while iteration < max_iterations:
             iteration += 1
 
-            response = self.client.models.generate_content(
+            response = await self.client.aio.models.generate_content(
                 model=self.model,
                 contents=history,
                 config=types.GenerateContentConfig(
