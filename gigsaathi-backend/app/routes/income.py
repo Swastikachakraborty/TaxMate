@@ -28,7 +28,32 @@ async def get_income(user_id: str, financial_year: str = "2025-26"):
         raise HTTPException(status_code=404, detail=f"User '{user_id}' not found")
 
     summary = await get_income_summary(user_id, financial_year)
-    return summary
+
+    # Normalize to match the frontend IncomeSummary interface:
+    # Convert by_platform array → platform_breakdown Record
+    by_platform = summary.get("by_platform", [])
+    platform_breakdown = {
+        p["platform"]: {
+            "gross": p["gross_income"],
+            "tds": p["tds_deducted"],
+            "count": p["record_count"],
+        }
+        for p in by_platform
+    }
+
+    # Convert by_month array → monthly_breakdown Record (month-year string → amount)
+    by_month = summary.get("by_month", [])
+    monthly_breakdown = {
+        f"{m['month']} {m['year']}": m["gross_income"]
+        for m in by_month
+    }
+
+    return {
+        **summary,
+        "net_income": summary.get("total_net_income", 0),
+        "platform_breakdown": platform_breakdown,
+        "monthly_breakdown": monthly_breakdown,
+    }
 
 
 @router.get("/income/{user_id}/records")

@@ -21,14 +21,22 @@ async def lifespan(app: FastAPI):
     # Startup
     await mongodb.connect()
     await mongodb.create_indexes()
-    print(f"✅ Connected to MongoDB ({settings.DB_NAME})")
-    print(f"🤖 Using Gemini model: {settings.GEMINI_MODEL}")
+    print(f"[OK] Connected to MongoDB ({settings.DB_NAME})")
+    print(f"[AI] Using Gemini model: {settings.GEMINI_MODEL}")
+
+    # Warn if the Gemini API key looks wrong
+    key = settings.GEMINI_API_KEY
+    if not key:
+        print("[WARN] GEMINI_API_KEY is not set! AI chat will fail.")
+    elif not key.startswith("AIza"):
+        print(f"[WARN] GEMINI_API_KEY appears invalid (starts with '{key[:6]}...' instead of 'AIza...').")
+        print("[WARN] Get a valid key from: https://aistudio.google.com/app/apikey")
 
     yield
 
     # Shutdown
     await mongodb.disconnect()
-    print("🔌 Disconnected from MongoDB")
+    print("[--] Disconnected from MongoDB")
 
 
 app = FastAPI(
