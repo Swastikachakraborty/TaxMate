@@ -3,20 +3,20 @@ import { LayoutDashboard, UploadCloud, PieChart, Download, LogOut, User } from "
 import { useAuth } from "@/context/AuthContext";
 
 const NAV = [
-  { name: "Agent Workspace", path: "/",            icon: LayoutDashboard },
-  { name: "Upload PDFs",     path: "/upload",      icon: UploadCloud },
-  { name: "Tax Summary",     path: "/tax-summary", icon: PieChart },
-  { name: "ITR Export",      path: "/itr-export",  icon: Download },
+  { name: "Agent Workspace", path: "/app",            icon: LayoutDashboard },
+  { name: "Upload PDFs",     path: "/app/upload",      icon: UploadCloud },
+  { name: "Tax Summary",     path: "/app/tax-summary", icon: PieChart },
+  { name: "ITR Export",      path: "/app/itr-export",  icon: Download },
 ];
 
 export default function Sidebar() {
   const [location] = useLocation();
   const { name, signOut } = useAuth();
 
-  function handleLogout() {
-    signOut();
-    // Use window.location to escape the base router context and go to root
-    window.location.href = "/";
+  function isActive(path: string) {
+    const loc = window.location.pathname;
+    if (path === "/app") return loc === "/app" || loc === "/app/";
+    return loc.startsWith(path);
   }
 
   return (
@@ -33,16 +33,16 @@ export default function Sidebar() {
           <nav className="space-y-1 mt-4">
             {NAV.map((item) => {
               const Icon = item.icon;
-              const isActive = location === item.path || (item.path !== "/" && location.startsWith(item.path));
+              const active = isActive(item.path);
               return (
                 <Link key={item.path} href={item.path}>
                   <div className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer text-sm font-medium transition-colors border-l-2 ${
-                    isActive
+                    active
                       ? "bg-[#f4ebd9]/40 text-[#1a1a2e] border-[#d97706]"
                       : "text-[#6b675d] hover:text-[#1a1a2e] hover:bg-[#f4ebd9]/20 border-transparent"
                   }`}
                     data-testid={`nav-${item.name.toLowerCase().replace(/\s+/g, "-")}`}>
-                    <Icon className={`w-4 h-4 ${isActive ? "text-[#d97706]" : ""}`} />
+                    <Icon className={`w-4 h-4 ${active ? "text-[#d97706]" : ""}`} />
                     {item.name}
                   </div>
                 </Link>
@@ -62,7 +62,7 @@ export default function Sidebar() {
                 <p className="text-[10px] text-[#8c8577]">FY 2025–26</p>
               </div>
             </div>
-            <button onClick={handleLogout} title="Sign out"
+            <button onClick={signOut} title="Sign out"
               className="p-1.5 rounded-lg text-[#8c8577] hover:text-red-400 hover:bg-red-50 transition-colors shrink-0">
               <LogOut className="w-3.5 h-3.5" />
             </button>
@@ -74,10 +74,10 @@ export default function Sidebar() {
       <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#fdfbf7] border-t border-[#e8e2d5] flex items-center justify-around px-2 z-50">
         {NAV.map((item) => {
           const Icon = item.icon;
-          const isActive = location === item.path || (item.path !== "/" && location.startsWith(item.path));
+          const active = isActive(item.path);
           return (
             <Link key={item.path} href={item.path}>
-              <div className={`flex flex-col items-center justify-center w-14 h-full gap-1 ${isActive ? "text-[#d97706]" : "text-[#8c8577]"}`}>
+              <div className={`flex flex-col items-center justify-center w-14 h-full gap-1 ${active ? "text-[#d97706]" : "text-[#8c8577]"}`}>
                 <Icon className="w-5 h-5" />
                 <span className="text-[10px] font-medium leading-none">{item.name.split(" ")[0]}</span>
               </div>
