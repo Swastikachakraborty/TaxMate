@@ -1,6 +1,9 @@
-import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
+import { Switch, Route, Router as WouterRouter, Redirect, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ClerkProvider, SignedIn, SignedOut, RedirectToSignIn } from "@clerk/clerk-react";
+import {
+  ClerkProvider, SignedIn, SignedOut, RedirectToSignIn,
+  useUser, useClerk,
+} from "@clerk/clerk-react";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/context/AuthContext";
@@ -22,7 +25,24 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
 });
 
+// Full-page loading spinner shown while Clerk initializes
+function ClerkLoadingScreen() {
+  return (
+    <div className="h-screen w-screen flex items-center justify-center bg-[#faf7f2]">
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-10 h-10 rounded-full border-2 border-[#d97706] border-t-transparent animate-spin" />
+        <p className="text-sm text-[#8c8577] font-medium">Loading…</p>
+      </div>
+    </div>
+  );
+}
+
 function ProtectedApp() {
+  const { isLoaded } = useUser();
+
+  // While Clerk is initializing, show loading screen instead of flashing
+  if (!isLoaded) return <ClerkLoadingScreen />;
+
   return (
     <>
       <SignedIn>
@@ -47,6 +67,11 @@ function ProtectedApp() {
 }
 
 function Router() {
+  const { isLoaded } = useUser();
+
+  // Wait for Clerk before rendering any route — prevents flash of wrong content
+  if (!isLoaded) return <ClerkLoadingScreen />;
+
   return (
     <Switch>
       <Route path="/" component={Landing} />
@@ -100,6 +125,7 @@ function AppWithoutClerk() {
                       <Route path="/tax-summary" component={TaxSummary} />
                       <Route path="/chat" component={Chat} />
                       <Route path="/itr-export" component={ItrExport} />
+                      <Route component={NotFound} />
                     </Switch>
                   </WouterRouter>
                 </AppLayout>
@@ -115,14 +141,8 @@ function AppWithoutClerk() {
   );
 }
 
-// No-auth mode AuthProvider shim (so Dashboard/pages don't crash when no Clerk)
-function NoAuthProvider({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
-}
-
 export default function App() {
   if (!CLERK_KEY) {
-    // No Clerk key: bypass auth entirely (demo/local mode)
     return <AppWithoutClerk />;
   }
   return <AppWithClerk />;

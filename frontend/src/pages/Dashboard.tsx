@@ -182,17 +182,18 @@ export default function Dashboard() {
   const fileRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  // Welcome message once profile loads
+  // Welcome message: fire once on mount using the name already available from Clerk
   useEffect(() => {
-    if (messages.length === 0 && !userQ.isLoading) {
-      const userName = userQ.data?.name ?? name ?? null;
+    if (messages.length === 0) {
+      const userName = name ?? null;
       setMessages([{
         id: 0,
         role: "ai",
         text: `Namaste${userName ? ` ${userName}` : ""}! 🙏\n\nI am your **GigSaathi AI Tax Advisor**, powered by Gemini.\n\nI can:\n- Calculate your exact Section 44ADA tax liability\n- Parse your Swiggy / Uber / Upwork payout PDFs\n- Tell you upcoming advance tax deadlines\n- Generate your ITR-4 computation worksheet\n\nAsk me anything, or **attach a payout statement PDF** using the 📎 button below.`,
       }]);
     }
-  }, [userQ.isLoading, userQ.data]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -407,17 +408,8 @@ export default function Dashboard() {
     "Explain Section 44ADA in simple words",
   ];
 
-  // Don't render until Clerk and user profile are resolved
-  if (!isLoaded || (!!userId && userQ.isLoading)) {
-    return (
-      <div className="h-screen flex items-center justify-center bg-[#faf7f2]">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-10 h-10 rounded-full border-2 border-[#d97706] border-t-transparent animate-spin" />
-          <p className="text-sm text-[#8c8577]">Loading workspace…</p>
-        </div>
-      </div>
-    );
-  }
+  // Clerk-level loading is already handled by App.tsx — no need to block here.
+  // If userQ is still loading, panels just show their empty/skeleton states inline.
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-[#faf7f2]">

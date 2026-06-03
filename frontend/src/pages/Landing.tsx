@@ -1,8 +1,9 @@
 import { Link } from "wouter";
 import { motion } from "framer-motion";
+import { useUser } from "@clerk/clerk-react";
 import {
-  FileText, MessageSquare, Download, Shield, TrendingUp, CheckCircle2,
-  ArrowRight, Sparkles, BarChart3, IndianRupee
+  FileText, MessageSquare, Download, Shield, TrendingUp,
+  ArrowRight, Sparkles, BarChart3, IndianRupee, LayoutDashboard,
 } from "lucide-react";
 
 const stagger = {
@@ -83,6 +84,16 @@ const TESTIMONIALS = [
 ];
 
 export default function Landing() {
+  // Try to use Clerk — gracefully fall back if no Clerk key
+  let isSignedIn = false;
+  try {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const { isSignedIn: clerkSignedIn, isLoaded } = useUser();
+    if (isLoaded) isSignedIn = !!clerkSignedIn;
+  } catch {
+    // No Clerk provider — dev/no-auth mode
+  }
+
   return (
     <div className="min-h-screen bg-[#faf7f2] text-[#1a1a2e]">
       {/* Nav */}
@@ -95,16 +106,26 @@ export default function Landing() {
             <a href="#testimonials" className="hover:text-[#1a1a2e] transition-colors">Testimonials</a>
           </nav>
           <div className="flex items-center gap-3">
-            <Link href="/login">
-              <button className="h-9 px-5 rounded-full border border-[#1a1a2e] text-sm font-medium text-[#1a1a2e] hover:bg-[#1a1a2e] hover:text-white transition-all">
-                Sign in
-              </button>
-            </Link>
-            <Link href="/register">
-              <button className="h-9 px-5 rounded-full bg-[#d97706] hover:bg-[#b46204] text-white text-sm font-medium transition-all shadow-sm">
-                Get started
-              </button>
-            </Link>
+            {isSignedIn ? (
+              <Link href="/app">
+                <button className="h-9 px-5 rounded-full bg-[#d97706] hover:bg-[#b46204] text-white text-sm font-semibold flex items-center gap-2 transition-all shadow-sm">
+                  <LayoutDashboard className="w-3.5 h-3.5" /> Go to Dashboard
+                </button>
+              </Link>
+            ) : (
+              <>
+                <Link href="/login">
+                  <button className="h-9 px-5 rounded-full border border-[#1a1a2e] text-sm font-medium text-[#1a1a2e] hover:bg-[#1a1a2e] hover:text-white transition-all">
+                    Sign in
+                  </button>
+                </Link>
+                <Link href="/register">
+                  <button className="h-9 px-5 rounded-full bg-[#d97706] hover:bg-[#b46204] text-white text-sm font-medium transition-all shadow-sm">
+                    Get started
+                  </button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -124,16 +145,26 @@ export default function Landing() {
             TaxEase turns your scattered invoices and bank statements into a clear, complete ITR-4 worksheet — in minutes, not days.
           </motion.p>
           <motion.div variants={fade} className="flex flex-wrap gap-4">
-            <Link href="/register">
-              <button className="h-12 px-8 rounded-full bg-[#1a1a2e] hover:bg-[#2d2d4e] text-white font-medium flex items-center gap-2 transition-all shadow-md">
-                Start for free <ArrowRight className="w-4 h-4" />
-              </button>
-            </Link>
-            <Link href="/login">
-              <button className="h-12 px-8 rounded-full border border-[#e8e2d5] hover:border-[#d97706]/40 text-[#1a1a2e] font-medium hover:bg-[#f4ebd9]/30 transition-all">
-                Sign in to your account
-              </button>
-            </Link>
+            {isSignedIn ? (
+              <Link href="/app">
+                <button className="h-12 px-8 rounded-full bg-[#1a1a2e] hover:bg-[#2d2d4e] text-white font-medium flex items-center gap-2 transition-all shadow-md">
+                  <LayoutDashboard className="w-4 h-4" /> Open Dashboard <ArrowRight className="w-4 h-4" />
+                </button>
+              </Link>
+            ) : (
+              <>
+                <Link href="/register">
+                  <button className="h-12 px-8 rounded-full bg-[#1a1a2e] hover:bg-[#2d2d4e] text-white font-medium flex items-center gap-2 transition-all shadow-md">
+                    Start for free <ArrowRight className="w-4 h-4" />
+                  </button>
+                </Link>
+                <Link href="/login">
+                  <button className="h-12 px-8 rounded-full border border-[#e8e2d5] hover:border-[#d97706]/40 text-[#1a1a2e] font-medium hover:bg-[#f4ebd9]/30 transition-all">
+                    Sign in to your account
+                  </button>
+                </Link>
+              </>
+            )}
           </motion.div>
         </motion.div>
 
@@ -337,16 +368,26 @@ export default function Landing() {
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-3 shrink-0">
-            <Link href="/register">
-              <button className="h-12 px-8 rounded-full bg-[#d97706] hover:bg-[#b46204] text-white font-semibold flex items-center gap-2 transition-all">
-                Get started free <ArrowRight className="w-4 h-4" />
-              </button>
-            </Link>
-            <Link href="/login">
-              <button className="h-12 px-8 rounded-full border border-white/20 text-white hover:bg-white/10 font-medium transition-all">
-                Sign in
-              </button>
-            </Link>
+            {isSignedIn ? (
+              <Link href="/app">
+                <button className="h-12 px-8 rounded-full bg-[#d97706] hover:bg-[#b46204] text-white font-semibold flex items-center gap-2 transition-all">
+                  <LayoutDashboard className="w-4 h-4" /> Open my Dashboard <ArrowRight className="w-4 h-4" />
+                </button>
+              </Link>
+            ) : (
+              <>
+                <Link href="/register">
+                  <button className="h-12 px-8 rounded-full bg-[#d97706] hover:bg-[#b46204] text-white font-semibold flex items-center gap-2 transition-all">
+                    Get started free <ArrowRight className="w-4 h-4" />
+                  </button>
+                </Link>
+                <Link href="/login">
+                  <button className="h-12 px-8 rounded-full border border-white/20 text-white hover:bg-white/10 font-medium transition-all">
+                    Sign in
+                  </button>
+                </Link>
+              </>
+            )}
           </div>
         </motion.div>
       </section>

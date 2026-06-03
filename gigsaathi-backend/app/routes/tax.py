@@ -59,7 +59,39 @@ async def get_itr_summary(user_id: str):
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])
 
-    return result
+    # Adapt the backend tool response to match the frontend ItrSummary interface
+    pi = result.get("part_a_general", {})
+    bp = result.get("schedule_bp_profession_income", {})
+    ti = result.get("part_b_total_income", {})
+    tc = result.get("part_b_tti_tax_computation", {})
+    tp = result.get("tax_paid_and_verification", {})
+
+    platform_income = {
+        p["platform"]: p["gross_income"]
+        for p in bp.get("platform_wise_receipts", [])
+    }
+
+    return {
+        "user_id": user_id,
+        "form_type": result.get("form_type", "ITR-4"),
+        "assessment_year": result.get("assessment_year", "2026-27"),
+        "personal_info": {
+            "name": pi.get("name", ""),
+            "pan_number": pi.get("pan") or "",
+            "state": pi.get("state", ""),
+        },
+        "income_computation": {
+            "gross_receipts": bp.get("gross_receipts", 0),
+            "deduction_44ada": bp.get("presumptive_income_44ADA", 0),
+            "net_taxable": ti.get("total_taxable_income", 0),
+        },
+        "tax_computation": {
+            "total_tax": tc.get("total_tax_liability", 0),
+            "tds_credit": tp.get("tds_claimed", 0),
+            "net_payable": tp.get("tax_payable", 0),
+        },
+        "platform_income": platform_income,
+    }
 
 
 @router.get("/tax/{user_id}/deductions")
