@@ -27,6 +27,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+/**
+ * Demo auth provider for running without Clerk.
+ * Returns a hardcoded demo user so all pages that call useAuth() work.
+ */
+export function DemoAuthProvider({ children }: { children: ReactNode }) {
+  const value: AuthContextType = {
+    userId: "ravi_kumar",
+    name: "Ravi Kumar",
+    isLoaded: true,
+    signOut: () => { window.location.href = "/"; },
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
 export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");

@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ClerkProvider, SignedIn, SignedOut, RedirectToSignIn } from "@clerk/clerk-react";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { AuthProvider } from "@/context/AuthContext";
+import { AuthProvider, DemoAuthProvider } from "@/context/AuthContext";
 import NotFound from "@/pages/not-found";
 
 import Landing from "@/pages/Landing";
@@ -87,37 +87,49 @@ function AppWithoutClerk() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <WouterRouter base="">
-          <Switch>
-            <Route path="/" component={Landing} />
-            <Route path="/app/:rest*">
-              {() => (
-                <AppLayout>
-                  <WouterRouter base="/app">
-                    <Switch>
-                      <Route path="/" component={Dashboard} />
-                      <Route path="/upload" component={Upload} />
-                      <Route path="/tax-summary" component={TaxSummary} />
-                      <Route path="/chat" component={Chat} />
-                      <Route path="/itr-export" component={ItrExport} />
-                    </Switch>
-                  </WouterRouter>
-                </AppLayout>
-              )}
-            </Route>
-            <Route path="/app" component={Dashboard} />
-            <Route component={NotFound} />
-          </Switch>
-        </WouterRouter>
-        <Toaster />
+        <DemoAuthProvider>
+          <WouterRouter base="">
+            <Switch>
+              <Route path="/" component={Landing} />
+              {/* Redirect auth routes straight to dashboard in demo mode */}
+              <Route path="/sign-in">{() => <Redirect to="/app" />}</Route>
+              <Route path="/sign-up">{() => <Redirect to="/app" />}</Route>
+              <Route path="/login">{() => <Redirect to="/app" />}</Route>
+              <Route path="/register">{() => <Redirect to="/app" />}</Route>
+              <Route path="/app/:rest*">
+                {() => (
+                  <AppLayout>
+                    <WouterRouter base="/app">
+                      <Switch>
+                        <Route path="/" component={Dashboard} />
+                        <Route path="/upload" component={Upload} />
+                        <Route path="/tax-summary" component={TaxSummary} />
+                        <Route path="/chat" component={Chat} />
+                        <Route path="/itr-export" component={ItrExport} />
+                      </Switch>
+                    </WouterRouter>
+                  </AppLayout>
+                )}
+              </Route>
+              <Route path="/app">
+                {() => (
+                  <AppLayout>
+                    <WouterRouter base="/app">
+                      <Switch>
+                        <Route path="/" component={Dashboard} />
+                      </Switch>
+                    </WouterRouter>
+                  </AppLayout>
+                )}
+              </Route>
+              <Route component={NotFound} />
+            </Switch>
+          </WouterRouter>
+          <Toaster />
+        </DemoAuthProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );
-}
-
-// No-auth mode AuthProvider shim (so Dashboard/pages don't crash when no Clerk)
-function NoAuthProvider({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
 }
 
 export default function App() {
