@@ -40,9 +40,12 @@ class MongoDB:
             ConnectionError: If the server is unreachable.
         """
         logger.info("Connecting to MongoDB …")
+        kwargs = {}
+        if "localhost" not in settings.MONGODB_URI and "127.0.0.1" not in settings.MONGODB_URI:
+            kwargs["tlsCAFile"] = certifi.where()
         self.client = AsyncIOMotorClient(
             settings.MONGODB_URI,
-            tlsCAFile=certifi.where(),
+            **kwargs
         )
         # Force a round-trip so we fail fast on bad URI / unreachable server
         await self.client.admin.command("ping")
