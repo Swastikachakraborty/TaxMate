@@ -7,6 +7,7 @@ Processes multiple PDFs in parallel using asyncio.gather().
 
 import asyncio
 import json
+import re
 import base64
 from datetime import datetime
 from pathlib import Path
@@ -92,7 +93,10 @@ class PDFParser:
         pdf_base64 = base64.b64encode(file_content).decode("utf-8")
 
         try:
-            response = self.client.models.generate_content(
+            # parse_pdf is async — use the async Gemini client so that
+            # asyncio.gather() in parse_multiple_pdfs runs truly in parallel
+            # instead of blocking the event loop on each call.
+            response = await self.client.aio.models.generate_content(
                 model=self.model,
                 contents=[
                     types.Content(
@@ -118,12 +122,13 @@ class PDFParser:
             # Parse the JSON response
             raw_text = response.text.strip()
 
-            # Strip markdown code fences if present
-            if raw_text.startswith("```"):
-                raw_text = raw_text.split("\n", 1)[1]  # Remove first line
-                if raw_text.endswith("```"):
-                    raw_text = raw_text[:-3]
-                raw_text = raw_text.strip()
+            # Strip markdown code fences robustly with a regex.
+            # Handles: ```json, ```JSON, ```, and trailing whitespace/newlines.
+            raw_text = re.sub(
+                r"^```[a-zA-Z]*\s*", "", raw_text, flags=re.MULTILINE
+            )
+            raw_text = re.sub(r"```\s*$", "", raw_text, flags=re.MULTILINE)
+            raw_text = raw_text.strip()
 
             parsed = json.loads(raw_text)
 

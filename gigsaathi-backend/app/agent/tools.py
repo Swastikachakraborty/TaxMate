@@ -12,6 +12,7 @@ Tools:
     5. check_deadlines() — Alert on advance tax deadlines
 """
 
+import asyncio
 from datetime import datetime
 
 from app.db.database import mongodb
@@ -285,9 +286,14 @@ async def generate_itr_summary(user_id: str) -> dict:
     if not user:
         return {"error": f"User {user_id} not found."}
 
-    # Get fresh tax calculation
-    tax = await calculate_tax(user_id)
-    income = await get_income_summary(user_id)
+    # Run tax calculation and income summary concurrently.
+    # Note: calculate_tax() also calls get_income_summary() internally, but the
+    # ITR summary needs the full by_platform breakdown separately, so we fetch
+    # both. Running them in parallel avoids the previous sequential double-fetch.
+    tax, income = await asyncio.gather(
+        calculate_tax(user_id),
+        get_income_summary(user_id),
+    )
 
     # Build ITR-4 Sugam field mapping
     itr_summary = {

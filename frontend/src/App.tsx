@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ClerkProvider, SignedIn, SignedOut, RedirectToSignIn } from "@clerk/clerk-react";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { AuthProvider, DemoAuthProvider } from "@/context/AuthContext";
+import { AuthProvider, DemoAuthProvider, useAuth } from "@/context/AuthContext";
 import NotFound from "@/pages/not-found";
 
 import Landing from "@/pages/Landing";
@@ -26,8 +26,8 @@ function ProtectedApp() {
   return (
     <>
       <SignedIn>
-        <AppLayout>
-          <WouterRouter base="/app">
+        <WouterRouter base="/app">
+          <AppLayout>
             <Switch>
               <Route path="/" component={Dashboard} />
               <Route path="/upload" component={Upload} />
@@ -36,8 +36,8 @@ function ProtectedApp() {
               <Route path="/itr-export" component={ItrExport} />
               <Route component={NotFound} />
             </Switch>
-          </WouterRouter>
-        </AppLayout>
+          </AppLayout>
+        </WouterRouter>
       </SignedIn>
       <SignedOut>
         <RedirectToSignIn />
@@ -83,6 +83,29 @@ function AppWithClerk() {
   );
 }
 
+function ProtectedDemoApp() {
+  const { userId } = useAuth();
+
+  if (!userId) {
+    return <Redirect to="/sign-in" />;
+  }
+
+  return (
+    <WouterRouter base="/app">
+      <AppLayout>
+        <Switch>
+          <Route path="/" component={Dashboard} />
+          <Route path="/upload" component={Upload} />
+          <Route path="/tax-summary" component={TaxSummary} />
+          <Route path="/chat" component={Chat} />
+          <Route path="/itr-export" component={ItrExport} />
+          <Route component={NotFound} />
+        </Switch>
+      </AppLayout>
+    </WouterRouter>
+  );
+}
+
 function AppWithoutClerk() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -91,37 +114,13 @@ function AppWithoutClerk() {
           <WouterRouter base="">
             <Switch>
               <Route path="/" component={Landing} />
-              {/* Redirect auth routes straight to dashboard in demo mode */}
-              <Route path="/sign-in">{() => <Redirect to="/app" />}</Route>
-              <Route path="/sign-up">{() => <Redirect to="/app" />}</Route>
-              <Route path="/login">{() => <Redirect to="/app" />}</Route>
-              <Route path="/register">{() => <Redirect to="/app" />}</Route>
-              <Route path="/app/:rest*">
-                {() => (
-                  <AppLayout>
-                    <WouterRouter base="/app">
-                      <Switch>
-                        <Route path="/" component={Dashboard} />
-                        <Route path="/upload" component={Upload} />
-                        <Route path="/tax-summary" component={TaxSummary} />
-                        <Route path="/chat" component={Chat} />
-                        <Route path="/itr-export" component={ItrExport} />
-                      </Switch>
-                    </WouterRouter>
-                  </AppLayout>
-                )}
-              </Route>
-              <Route path="/app">
-                {() => (
-                  <AppLayout>
-                    <WouterRouter base="/app">
-                      <Switch>
-                        <Route path="/" component={Dashboard} />
-                      </Switch>
-                    </WouterRouter>
-                  </AppLayout>
-                )}
-              </Route>
+              {/* Demo mode: sign-in/login shows the local login form; sign-up shows the local registration form */}
+              <Route path="/sign-in" component={Login} />
+              <Route path="/sign-up" component={Register} />
+              <Route path="/login" component={Login} />
+              <Route path="/register" component={Register} />
+              <Route path="/app/:rest*" component={ProtectedDemoApp} />
+              <Route path="/app" component={ProtectedDemoApp} />
               <Route component={NotFound} />
             </Switch>
           </WouterRouter>

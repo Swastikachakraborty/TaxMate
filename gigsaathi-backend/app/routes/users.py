@@ -47,6 +47,7 @@ async def create_user(profile: UserProfileCreate):
 
     await mongodb.user_profiles.insert_one(doc)
 
+    doc["_id"] = str(doc["_id"])
     return {"message": f"User '{profile.user_id}' created successfully", "user": doc}
 
 
@@ -64,11 +65,3 @@ async def get_user(user_id: str):
     user["_id"] = str(user["_id"])
     return user
 
-
-@router.get("/users")
-async def list_users():
-    """List all user profiles (for demo/admin purposes)."""
-    users = await mongodb.user_profiles.find().to_list(length=100)
-    for u in users:
-        u["_id"] = str(u["_id"])
-    return {"users": users, "count": len(users)}

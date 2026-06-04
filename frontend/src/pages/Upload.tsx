@@ -128,7 +128,7 @@ export default function Upload() {
                 <div>
                   <p className="text-sm font-semibold text-[#1a1a2e]">Drop PDFs here or click to browse</p>
                   <p className="text-xs text-[#8c8577] mt-1">
-                    Swiggy · Uber · Upwork · Fiverr · Bank statements · Max 5 files
+                    Swiggy · Uber · Upwork · Fiverr · Bank statements · Max 10 files
                   </p>
                 </div>
                 <span className="mt-1 px-5 py-2 rounded-full border border-[#1a1a2e] text-xs font-medium text-[#1a1a2e]">
