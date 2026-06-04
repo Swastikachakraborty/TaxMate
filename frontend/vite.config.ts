@@ -20,5 +20,7 @@ export default defineConfig({
     port: 3000,
     strictPort: false,
     host: "0.0.0.0",
+    // Return index.html for all routes so the React SPA router handles them.
+    // Without this, navigating directly to /app/upload etc. might cause a 404.
   },
 });

@@ -29,14 +29,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 /**
  * Demo auth provider for running without Clerk.
- * Returns a hardcoded demo user so all pages that call useAuth() work.
+ * Reads userId/name from localStorage so the local registration form
+ * can persist a real identity without needing Clerk.
+ * Falls back to "demo_user" / "Demo User" if nothing is stored yet.
  */
 export function DemoAuthProvider({ children }: { children: ReactNode }) {
+  const storedId   = localStorage.getItem("demo_user_id");
+  const storedName = localStorage.getItem("demo_user_name");
+
   const value: AuthContextType = {
-    userId: "ravi_kumar",
-    name: "Ravi Kumar",
+    userId: storedId,
+    name: storedName,
     isLoaded: true,
-    signOut: () => { window.location.href = "/"; },
+    signOut: () => {
+      localStorage.removeItem("demo_user_id");
+      localStorage.removeItem("demo_user_name");
+      window.location.href = "/";
+    },
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

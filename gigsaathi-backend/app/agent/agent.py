@@ -272,7 +272,9 @@ async def _mock_chat(user_id: str, message: str) -> dict:
                     response_parts.append(f"- **{name}**: up to {_inr(amount)} — {desc}")
 
     # ── ITR Summary ─────────────────────────────────────────────────
-    itr_keywords = ["itr", "filing", "file", "return", "sugam", "itr-4", "itr4"]
+    # Note: "file" is intentionally excluded — it is too generic (e.g. "when do I
+    # file?" or "upload file") and was causing double-triggers with other intents.
+    itr_keywords = ["itr", "filing", "return", "sugam", "itr-4", "itr4"]
     if any(k in msg for k in itr_keywords):
         tools_called.append("generate_itr_summary")
         itr = await generate_itr_summary(user_id)
@@ -333,11 +335,17 @@ class GigSaathiAgent:
     absent, a placeholder, or returns an auth error from the API.
     """
 
+    # Maximum number of conversation turns to keep in memory per user.
+    # Each turn = 1 user message + 1 assistant reply, so 20 turns = 40 items.
+    # This caps memory usage and prevents the in-process dict from growing
+    # indefinitely across long sessions or many users.
+    MAX_HISTORY_TURNS: int = 20
+
     def __init__(self):
         """Initialize the agent. Gemini client is lazy-loaded on first chat."""
         self._client = None
         self.model = settings.GEMINI_MODEL
-        # Per-user conversation histories
+        # Per-user conversation histories (capped at MAX_HISTORY_TURNS)
         self._conversations: dict[str, list] = {}
         # Determine upfront if we should use mock mode
         self._mock_mode = not _is_key_valid(settings.GEMINI_API_KEY)
@@ -356,9 +364,20 @@ class GigSaathiAgent:
         return self._client
 
     def _get_history(self, user_id: str) -> list:
-        """Get or create conversation history for a user."""
+        """Get or create conversation history for a user.
+
+        Enforces MAX_HISTORY_TURNS by pruning the oldest turns whenever
+        the history exceeds the cap. Pruning is done in pairs (user + model)
+        to keep the history structurally valid for the Gemini API.
+        """
         if user_id not in self._conversations:
             self._conversations[user_id] = []
+        history = self._conversations[user_id]
+        # Each "turn" is at minimum 2 items (user content + model content).
+        # If we exceed the cap, drop the oldest pair.
+        max_items = self.MAX_HISTORY_TURNS * 2
+        if len(history) > max_items:
+            self._conversations[user_id] = history[-max_items:]
         return self._conversations[user_id]
 
     def clear_history(self, user_id: str):

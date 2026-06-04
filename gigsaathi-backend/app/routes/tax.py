@@ -59,7 +59,33 @@ async def get_itr_summary(user_id: str):
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])
 
-    return result
+    mapped_result = {
+        "user_id": user_id,
+        "form_type": result.get("form_type"),
+        "assessment_year": result.get("assessment_year"),
+        "personal_info": {
+            "name": result["part_a_general"]["name"],
+            "pan_number": result["part_a_general"]["pan"],
+            "state": result["part_a_general"]["state"]
+        },
+        "income_computation": {
+            "gross_receipts": result["schedule_bp_profession_income"]["gross_receipts"],
+            "deduction_44ada": result["schedule_bp_profession_income"]["gross_receipts"] * 0.5,
+            "net_taxable": result["schedule_bp_profession_income"]["presumptive_income_44ADA"]
+        },
+        "tax_computation": {
+            "total_tax": result["part_b_tti_tax_computation"]["total_tax_liability"],
+            "tds_credit": result["schedule_tds"]["total_tds_deducted"],
+            "advance_tax_paid": result["tax_paid_and_verification"]["advance_tax_paid"],
+            "net_payable": result["tax_paid_and_verification"]["tax_payable"] - result["tax_paid_and_verification"]["refund_due"]
+        },
+        "platform_income": {
+            p["platform"]: p["gross_income"]
+            for p in result["schedule_bp_profession_income"]["platform_wise_receipts"]
+        }
+    }
+
+    return mapped_result
 
 
 @router.get("/tax/{user_id}/deductions")

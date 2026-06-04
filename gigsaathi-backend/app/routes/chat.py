@@ -7,12 +7,13 @@ Uses Server-Sent Events (SSE) for real-time response streaming.
 import json
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from app.db.database import mongodb
 from app.agent.agent import agent
+from app.limiter import limiter
 
 router = APIRouter()
 
@@ -31,14 +32,18 @@ class ChatResponse(BaseModel):
 
 
 @router.post("/chat")
-async def chat_with_agent(chat_msg: ChatMessage):
+@limiter.limit("20/minute")
+async def chat_with_agent(request: Request, chat_msg: ChatMessage):
     """Send a message to the GigSaathi agent and get a response.
+
+    Rate limited to 20 requests per minute per IP address.
 
     The agent will automatically decide which tools to call based on
     the user's question, execute them to fetch real data, and return
     a natural language response grounded in actual numbers.
 
     Args:
+        request: FastAPI request (used by rate limiter for IP resolution).
         chat_msg: The user's message and user_id.
 
     Returns:
@@ -63,8 +68,12 @@ async def chat_with_agent(chat_msg: ChatMessage):
 
 
 @router.post("/chat/stream")
-async def chat_stream(chat_msg: ChatMessage):
+@limiter.limit("10/minute")
+async def chat_stream(request: Request, chat_msg: ChatMessage):
     """Stream the agent's response using Server-Sent Events (SSE).
+
+    Rate limited to 10 requests per minute per IP address (SSE connections
+    are heavier on server resources than regular chat).
 
     This endpoint returns a streaming response where each event contains
     a chunk of the agent's reply. Useful for real-time display in the frontend.
@@ -77,6 +86,7 @@ async def chat_stream(chat_msg: ChatMessage):
         - type: "error" — An error occurred
 
     Args:
+        request: FastAPI request (used by rate limiter for IP resolution).
         chat_msg: The user's message and user_id.
     """
     user = await mongodb.user_profiles.find_one({"user_id": chat_msg.user_id})

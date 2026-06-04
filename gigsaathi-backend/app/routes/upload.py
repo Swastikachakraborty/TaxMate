@@ -68,6 +68,13 @@ async def upload_pdfs(
                 status_code=400,
                 detail=f"File '{f.filename}' exceeds {settings.MAX_UPLOAD_SIZE_MB}MB limit",
             )
+        # Validate PDF magic bytes (%PDF) — guards against renamed non-PDF files.
+        # PDF files always start with the 4-byte sequence: 0x25 0x50 0x44 0x46
+        if not content[:4] == b"%PDF":
+            raise HTTPException(
+                status_code=400,
+                detail=f"File '{f.filename}' does not appear to be a valid PDF (invalid header)",
+            )
         file_data.append((content, f.filename))
 
     # Parse all PDFs in parallel via Gemini
@@ -90,7 +97,10 @@ async def upload_pdfs(
             continue
 
         entries = result.get("entries", [])
-        records_stored = 0
+        # Collect all valid records for this file, then insert in a single batch.
+        # This is far faster than one insert_one() per row, especially for
+        # bank statements which may have hundreds of entries.
+        records_batch = []
 
         for entry in entries:
             # Only store credit entries (income) — skip debits from bank statements
@@ -98,7 +108,7 @@ async def upload_pdfs(
                 if entry.get("transaction_type") == "debit":
                     continue
 
-            record = {
+            records_batch.append({
                 "user_id": user_id,
                 "platform": result.get("platform", "other"),
                 "amount": float(entry.get("amount", 0)),
@@ -110,10 +120,12 @@ async def upload_pdfs(
                 "is_duplicate": False,
                 "duplicate_of": None,
                 "created_at": datetime.utcnow(),
-            }
+            })
 
-            await mongodb.income_records.insert_one(record)
-            records_stored += 1
+        records_stored = 0
+        if records_batch:
+            await mongodb.income_records.insert_many(records_batch)
+            records_stored = len(records_batch)
 
         total_records_stored += records_stored
 

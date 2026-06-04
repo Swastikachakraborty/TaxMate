@@ -56,38 +56,44 @@ class DuplicateDetector:
         duplicates_flagged = []
         total_duplicate_amount = 0.0
 
+        # Build a hash map from platform entries keyed by (date_str, amount_bucket).
+        # Amount is rounded to the nearest integer to absorb the ±₹1 tolerance.
+        # This gives O(n) lookup instead of the previous O(n×m) nested loop.
+        platform_map: dict[tuple, list] = {}
+        for pe in platform_entries:
+            pe_date = pe["payment_date"].date()
+            key = (str(pe_date), round(pe["amount"]))
+            platform_map.setdefault(key, []).append(pe)
+
         for bank_entry in bank_entries:
-            bank_date = bank_entry["payment_date"]
+            bank_date = bank_entry["payment_date"].date()
             bank_amount = bank_entry["amount"]
+            bank_rounded = round(bank_amount)
 
-            for platform_entry in platform_entries:
-                platform_date = platform_entry["payment_date"]
-                platform_amount = platform_entry["amount"]
-
-                # Check date match (±1 day)
-                date_diff = abs((bank_date - platform_date).days)
-                if date_diff > self.DATE_TOLERANCE_DAYS:
-                    continue
-
-                # Check amount match (±₹1)
-                amount_diff = abs(bank_amount - platform_amount)
-                if amount_diff > self.AMOUNT_TOLERANCE_INR:
-                    continue
-
-                # Match found — flag bank entry as duplicate
-                await collection.update_one(
-                    {"_id": bank_entry["_id"]},
-                    {
-                        "$set": {
-                            "is_duplicate": True,
-                            "duplicate_of": str(platform_entry["_id"]),
-                        }
-                    },
-                )
-
-                duplicates_flagged.append(str(bank_entry["_id"]))
-                total_duplicate_amount += bank_amount
-                break  # One match is enough, move to next bank entry
+            # Check the exact date bucket and ±1-day neighbours to respect tolerance.
+            matched = False
+            for delta in (0, -1, 1):
+                candidate_date = bank_date + timedelta(days=delta)
+                key = (str(candidate_date), bank_rounded)
+                candidates = platform_map.get(key, [])
+                for platform_entry in candidates:
+                    # Fine-grained amount check (±₹1)
+                    if abs(bank_amount - platform_entry["amount"]) <= self.AMOUNT_TOLERANCE_INR:
+                        await collection.update_one(
+                            {"_id": bank_entry["_id"]},
+                            {
+                                "$set": {
+                                    "is_duplicate": True,
+                                    "duplicate_of": str(platform_entry["_id"]),
+                                }
+                            },
+                        )
+                        duplicates_flagged.append(str(bank_entry["_id"]))
+                        total_duplicate_amount += bank_amount
+                        matched = True
+                        break
+                if matched:
+                    break
 
         return {
             "user_id": user_id,

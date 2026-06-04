@@ -1,6 +1,91 @@
+import { useState } from "react";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { SignIn } from "@clerk/clerk-react";
+import { Loader2 } from "lucide-react";
+import { api } from "@/lib/api";
+
+const CLERK_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+
+function LocalLoginForm() {
+  const [customUid, setCustomUid] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleManualLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+
+    const uid = customUid.trim().toLowerCase();
+    if (!uid) {
+      setError("Please enter a User ID.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Query the backend to verify the user exists
+      const user = await api.getUser(uid);
+      
+      // Save details to localStorage
+      localStorage.setItem("demo_user_id", user.user_id);
+      localStorage.setItem("demo_user_name", user.name);
+
+      // Redirect
+      window.location.href = "/app";
+    } catch (err: any) {
+      setError(
+        err.message?.includes("404") || err.message?.toLowerCase().includes("not found")
+          ? `User ID "${uid}" not found. Have you registered?`
+          : "Sign in failed. Ensure the backend server is running."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="w-full max-w-md space-y-6">
+      <div>
+        <h2 className="font-['Playfair_Display'] text-3xl font-bold text-[#1a1a2e]">Welcome back</h2>
+        <p className="text-sm text-[#6b675d] mt-1">Enter your registered User ID to sign in.</p>
+      </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-100 text-red-600 text-sm px-4 py-3 rounded-xl">
+          {error}
+        </div>
+      )}
+
+      {/* Manual User ID login */}
+      <form onSubmit={handleManualLogin} className="space-y-4">
+        <div className="space-y-1.5">
+          <label className="text-xs font-bold text-[#1a1a2e] uppercase tracking-wider block">User ID</label>
+          <input
+            type="text"
+            placeholder="e.g. ravi_kumar_l1234abc"
+            value={customUid}
+            onChange={(e) => setCustomUid(e.target.value)}
+            className="w-full h-12 px-4 rounded-xl border border-[#e8e2d5] bg-[#fdfbf7] text-[#1a1a2e] text-sm placeholder:text-[#c4b99d] focus:outline-none focus:border-[#d97706] focus:ring-1 focus:ring-[#d97706] transition-colors"
+          />
+        </div>
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full h-12 rounded-xl bg-[#d97706] hover:bg-[#b46204] disabled:opacity-60 text-white font-semibold text-sm transition-colors flex items-center justify-center gap-2"
+        >
+          {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Verifying ID…</> : "Sign In →"}
+        </button>
+      </form>
+
+      <p className="text-center text-sm text-[#8c8577]">
+        New to GigSaathi?{" "}
+        <Link href="/sign-up" className="text-[#d97706] font-semibold hover:underline">Register here</Link>
+      </p>
+    </div>
+  );
+}
 
 export default function Login() {
   return (
@@ -51,37 +136,41 @@ export default function Login() {
           transition={{ duration: 0.3 }}
           className="w-full flex justify-center"
         >
-          <SignIn
-            routing="hash"
-            signUpUrl="/sign-up"
-            forceRedirectUrl="/app"
-            appearance={{
-              elements: {
-                cardBox: "shadow-none bg-transparent border-none w-full max-w-md",
-                card: "shadow-none bg-transparent border-none p-0 w-full",
-                headerTitle: "font-['Playfair_Display'] text-3xl font-bold text-[#1a1a2e]",
-                headerSubtitle: "text-[#6b675d] text-sm",
-                socialButtonsIconButton: "border-[#e8e2d5] hover:bg-[#f4ebd9]/20",
-                formButtonPrimary: "bg-[#d97706] hover:bg-[#b46204] text-white rounded-xl h-12 font-semibold text-sm transition-colors border-none",
-                formFieldInput: "h-12 px-4 rounded-xl border border-[#e8e2d5] bg-[#fdfbf7] text-[#1a1a2e] placeholder:text-[#c4b99d] text-sm focus:outline-none focus:border-[#d97706] focus:ring-1 focus:ring-[#d97706] transition-colors",
-                footerActionLink: "text-[#d97706] font-semibold hover:underline",
-                identityPreviewText: "text-[#1a1a2e]",
-                identityPreviewEditButtonIcon: "text-[#d97706]",
-                formResendCodeLink: "text-[#d97706] hover:underline",
-                otpCodeFieldInput: "border-[#e8e2d5] focus:border-[#d97706]",
-              },
-              variables: {
-                colorPrimary: "#d97706",
-                colorText: "#1a1a2e",
-                colorTextSecondary: "#6b675d",
-                colorBackground: "#fdfbf7",
-                colorInputBackground: "#fdfbf7",
-                colorBorder: "#e8e2d5",
-                borderRadius: "12px",
-                fontFamily: "'Inter', sans-serif",
-              }
-            }}
-          />
+          {CLERK_KEY ? (
+            <SignIn
+              routing="hash"
+              signUpUrl="/sign-up"
+              forceRedirectUrl="/app"
+              appearance={{
+                elements: {
+                  cardBox: "shadow-none bg-transparent border-none w-full max-w-md",
+                  card: "shadow-none bg-transparent border-none p-0 w-full",
+                  headerTitle: "font-['Playfair_Display'] text-3xl font-bold text-[#1a1a2e]",
+                  headerSubtitle: "text-[#6b675d] text-sm",
+                  socialButtonsIconButton: "border-[#e8e2d5] hover:bg-[#f4ebd9]/20",
+                  formButtonPrimary: "bg-[#d97706] hover:bg-[#b46204] text-white rounded-xl h-12 font-semibold text-sm transition-colors border-none",
+                  formFieldInput: "h-12 px-4 rounded-xl border border-[#e8e2d5] bg-[#fdfbf7] text-[#1a1a2e] placeholder:text-[#c4b99d] text-sm focus:outline-none focus:border-[#d97706] focus:ring-1 focus:ring-[#d97706] transition-colors",
+                  footerActionLink: "text-[#d97706] font-semibold hover:underline",
+                  identityPreviewText: "text-[#1a1a2e]",
+                  identityPreviewEditButtonIcon: "text-[#d97706]",
+                  formResendCodeLink: "text-[#d97706] hover:underline",
+                  otpCodeFieldInput: "border-[#e8e2d5] focus:border-[#d97706]",
+                },
+                variables: {
+                  colorPrimary: "#d97706",
+                  colorText: "#1a1a2e",
+                  colorTextSecondary: "#6b675d",
+                  colorBackground: "#fdfbf7",
+                  colorInputBackground: "#fdfbf7",
+                  colorBorder: "#e8e2d5",
+                  borderRadius: "12px",
+                  fontFamily: "'Inter', sans-serif",
+                }
+              }}
+            />
+          ) : (
+            <LocalLoginForm />
+          )}
         </motion.div>
       </div>
     </div>
