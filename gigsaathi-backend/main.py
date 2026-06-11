@@ -8,15 +8,11 @@ Manages MongoDB lifecycle via startup/shutdown events.
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from slowapi import _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
 
 from app.config import settings
 from app.db.database import mongodb
-from app.limiter import limiter
 
 
 @asynccontextmanager
@@ -50,36 +46,13 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Attach limiter to app state so route decorators can find it
-app.state.limiter = limiter
-app.add_exception_handler(
-    RateLimitExceeded,
-    _rate_limit_exceeded_handler,
-)
-
-# CORS — allowed origins are loaded from the ALLOWED_ORIGINS env var
-# (comma-separated list of exact origins, no wildcards).
-# If unset, we fall back to safe localhost defaults for development.
-# Example production value:
-#   ALLOWED_ORIGINS=https://gigsaathi.run.app,https://app.gigsaathi.in
-_raw_origins = os.environ.get("ALLOWED_ORIGINS", "")
-if _raw_origins.strip():
-    _cors_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
-else:
-    # Development fallback: localhost only
-    _cors_origins = [
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:5173",   # Vite dev server
-        "http://127.0.0.1:5173",
-    ]
-
+# CORS — allow frontend origin (Next.js dev server + production)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_cors_origins,
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "Accept"],
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 

@@ -1,6 +1,8 @@
 // Clerk auth is wired in App.tsx via ClerkProvider.
-// This context wraps Clerk's useUser hook to expose the user_id (Clerk's userId)
-// for API calls, plus the user's display name.
+// Two providers are exported:
+//   ClerkAuthProvider — uses Clerk hooks (safe inside <ClerkProvider>)
+//   DemoAuthProvider  — no Clerk needed (for dev/no-auth mode)
+// App.tsx picks the right one based on whether VITE_CLERK_PUBLISHABLE_KEY is set.
 import { createContext, useContext, ReactNode } from "react";
 import { useUser, useClerk } from "@clerk/clerk-react";
 
@@ -13,7 +15,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+/** Used inside <ClerkProvider> — safe to call Clerk hooks here */
+export function ClerkAuthProvider({ children }: { children: ReactNode }) {
   const { isLoaded, isSignedIn, user } = useUser();
   const { signOut } = useClerk();
 
@@ -27,28 +30,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-/**
- * Demo auth provider for running without Clerk.
- * Reads userId/name from localStorage so the local registration form
- * can persist a real identity without needing Clerk.
- * Falls back to "demo_user" / "Demo User" if nothing is stored yet.
- */
+/** Used WITHOUT Clerk — provides a demo/dev user */
 export function DemoAuthProvider({ children }: { children: ReactNode }) {
-  const storedId   = localStorage.getItem("demo_user_id");
-  const storedName = localStorage.getItem("demo_user_name");
-
   const value: AuthContextType = {
-    userId: storedId,
-    name: storedName,
+    userId: "demo_user",
+    name: "Demo User",
     isLoaded: true,
-    signOut: () => {
-      localStorage.removeItem("demo_user_id");
-      localStorage.removeItem("demo_user_name");
-      window.location.href = "/";
-    },
+    signOut: () => {},
   };
-
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+/**
+ * Generic AuthProvider — picks ClerkAuthProvider or DemoAuthProvider based
+ * on env var. Only use this when you're sure the Clerk/Demo context is
+ * already set up correctly by App.tsx.
+ */
+export function AuthProvider({ children }: { children: ReactNode }) {
+  // This component is only rendered inside ClerkProvider (by AppWithClerk)
+  // or standalone (by AppWithoutClerk). In both cases the right provider
+  // is already around us — just re-use ClerkAuthProvider here because
+  // App.tsx guarantees ClerkProvider is present when this is called.
+  return <ClerkAuthProvider>{children}</ClerkAuthProvider>;
 }
 
 export function useAuth() {
