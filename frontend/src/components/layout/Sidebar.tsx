@@ -1,21 +1,23 @@
 import { Link, useLocation } from "wouter";
 import { LayoutDashboard, UploadCloud, PieChart, Download, LogOut, User } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-
-const NAV = [
-  { name: "Agent Workspace", path: "/",            icon: LayoutDashboard },
-  { name: "Upload PDFs",     path: "/upload",      icon: UploadCloud },
-  { name: "Tax Summary",     path: "/tax-summary", icon: PieChart },
-  { name: "ITR Export",      path: "/itr-export",  icon: Download },
-];
+import { useTranslation } from "react-i18next";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 export default function Sidebar() {
   const [location] = useLocation();
   const { name, signOut } = useAuth();
+  const { t } = useTranslation();
+
+  const NAV = [
+    { name: t("nav.agentWorkspace"), path: "/",            icon: LayoutDashboard },
+    { name: t("nav.uploadPdfs"),     path: "/upload",      icon: UploadCloud },
+    { name: t("nav.taxSummary"),     path: "/tax-summary", icon: PieChart },
+    { name: t("nav.itrExport"),      path: "/itr-export",  icon: Download },
+  ];
 
   function handleLogout() {
     signOut();
-    // Use window.location to escape the base router context and go to root
     window.location.href = "/";
   }
 
@@ -52,6 +54,9 @@ export default function Sidebar() {
         </div>
 
         <div className="space-y-2">
+          {/* Language Switcher */}
+          <LanguageSwitcher variant="sidebar" />
+
           <div className="flex items-center justify-between px-3 py-3 rounded-xl bg-[#f4ebd9]/30 border border-[#e8e2d5]">
             <div className="flex items-center gap-2 min-w-0">
               <div className="w-7 h-7 rounded-full bg-[#d97706]/10 border border-[#d97706]/20 flex items-center justify-center shrink-0">
@@ -59,10 +64,10 @@ export default function Sidebar() {
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-[#1a1a2e] truncate">{name ?? "—"}</p>
-                <p className="text-[10px] text-[#8c8577]">FY 2025–26</p>
+                <p className="text-[10px] text-[#8c8577]">{t("nav.fy")}</p>
               </div>
             </div>
-            <button onClick={handleLogout} title="Sign out"
+            <button onClick={handleLogout} title={t("common.signOut")}
               className="p-1.5 rounded-lg text-[#8c8577] hover:text-red-400 hover:bg-red-50 transition-colors shrink-0">
               <LogOut className="w-3.5 h-3.5" />
             </button>
