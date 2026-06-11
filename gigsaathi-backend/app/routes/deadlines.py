@@ -37,7 +37,7 @@ async def get_deadlines(user_id: str):
     installments = []
     for d in raw_deadlines:
         installments.append({
-            "installment": d.get("installment", ""),
+            "installment": d.get("label", ""),
             "due_date": d.get("due_date", ""),
             "cumulative_percent": d.get("cumulative_percent", 0),
             "amount_due": d.get("amount_due", 0),
@@ -50,7 +50,7 @@ async def get_deadlines(user_id: str):
     next_dl = result.get("next_deadline")
     if next_dl:
         next_dl = {
-            "installment": next_dl.get("installment", ""),
+            "installment": next_dl.get("label", ""),
             "due_date": next_dl.get("due_date", ""),
             "cumulative_percent": next_dl.get("cumulative_percent", 0),
             "amount_due": next_dl.get("amount_due", 0),

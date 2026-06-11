@@ -82,8 +82,8 @@ GigSaathi lets workers upload their earnings PDFs from any platform, and the sys
 
 ```bash
 # Clone the repo
-git clone https://github.com/yourusername/gigsaathi.git
-cd gigsaathi/gigsaathi-backend
+git clone https://github.com/Swastikachakraborty/TaxMate.git
+cd TaxMate/gigsaathi-backend
 
 # Create virtual environment
 python -m venv venv
@@ -110,7 +110,7 @@ API docs at `http://localhost:8000/docs`.
 ### Frontend Setup
 
 ```bash
-cd gigsaathi/frontend
+cd TaxMate/frontend
 
 # Install dependencies
 bun install
@@ -130,6 +130,7 @@ The frontend will be at `http://localhost:3000`.
 | `MONGODB_URI` | MongoDB Atlas connection string | ✅ |
 | `FIVETRAN_API_KEY` | Fivetran API key | Optional |
 | `FIVETRAN_API_SECRET` | Fivetran API secret | Optional |
+| `ALLOWED_ORIGINS` | Comma-separated list of allowed CORS origins (e.g. `https://app.gigsaathi.in`) | Optional |
 | `PORT` | Server port (default: 8000) | Optional |
 | `HOST` | Server host (default: 0.0.0.0) | Optional |
 | `ENV` | Environment (development/production) | Optional |
