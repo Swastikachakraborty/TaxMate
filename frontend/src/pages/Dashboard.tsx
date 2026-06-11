@@ -1,805 +1,676 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Bot, Send, Paperclip, Zap, AlertCircle, X,
   TrendingUp, Calendar, FileText, UploadCloud,
-  Loader2, Sparkles, ChevronRight, RefreshCw,
+  Loader2, RefreshCw, User, Check, ChevronRight,
+  AlertCircle, IndianRupee, Zap,
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { api, type IncomeSummary, type TaxResult, type DeadlinesResult, type UserProfile } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
-  DialogDescription, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8000/api/v1";
+// ── Helpers ────────────────────────────────────────────────────────────────────
 
 const INR = (n: number) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n);
 
 const STATES_OF_INDIA = [
-  "Maharashtra", "Karnataka", "Delhi", "Tamil Nadu", "Telangana",
-  "Uttar Pradesh", "West Bengal", "Gujarat", "Rajasthan", "Haryana", "Kerala", "Other",
+  "Andhra Pradesh", "Assam", "Bihar", "Delhi", "Gujarat", "Haryana",
+  "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Punjab",
+  "Rajasthan", "Tamil Nadu", "Telangana", "Uttar Pradesh", "West Bengal", "Other",
 ];
+
 const OCCUPATIONS = [
-  { value: "freelancer", label: "Freelancer / Professional (Sec 44ADA)" },
-  { value: "delivery", label: "Delivery Partner (Swiggy, Zomato, etc.)" },
-  { value: "rideshare", label: "Rideshare Driver (Uber, Ola, etc.)" },
-  { value: "mixed", label: "Mixed / Multiple Platform Roles" },
+  { value: "freelancer", label: "Freelancer / Professional", sub: "Upwork, Fiverr, consulting" },
+  { value: "delivery",   label: "Delivery Partner",          sub: "Swiggy, Zomato, Dunzo" },
+  { value: "rideshare",  label: "Rideshare Driver",          sub: "Uber, Ola, Rapido" },
+  { value: "mixed",      label: "Multiple Platforms",        sub: "Income from 2+ source types" },
 ];
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-interface Msg {
-  id: number;
-  role: "user" | "ai";
-  text: string;
-  tools?: string[];
-  streaming?: boolean;
+type OnboardStep = 1 | 2 | 3;
+interface OnboardData {
+  name: string; age: string; state: string;
+  occupation_type: string; pan_number: string; opted_44ADA: boolean;
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
+// ── Onboarding Wizard ──────────────────────────────────────────────────────────
 
-function RichText({ text }: { text: string }) {
-  return (
-    <div className="space-y-1 leading-relaxed">
-      {text.split("\n").map((line, i) => {
-        if (!line.trim()) return <div key={i} className="h-1" />;
-        const parts: React.ReactNode[] = [];
-        const re = /\*\*(.*?)\*\*/g;
-        let last = 0, m: RegExpExecArray | null;
-        while ((m = re.exec(line)) !== null) {
-          if (m.index > last) parts.push(line.slice(last, m.index));
-          parts.push(<strong key={m.index} className="font-semibold text-inherit">{m[1]}</strong>);
-          last = m.index + m[0].length;
-        }
-        if (last < line.length) parts.push(line.slice(last));
-        return <p key={i}>{parts.length ? parts : line}</p>;
-      })}
-    </div>
-  );
-}
-
-function Dots() {
-  return (
-    <div className="flex items-center gap-1 px-1 py-0.5">
-      {[0, 1, 2].map((i) => (
-        <motion.span
-          key={i}
-          className="w-1.5 h-1.5 rounded-full bg-[#d97706] inline-block"
-          animate={{ opacity: [0.3, 1, 0.3] }}
-          transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2 }}
-        />
-      ))}
-    </div>
-  );
-}
-
-function StatCard({
-  label, value, sub, accent, icon,
-}: {
-  label: string; value: string; sub?: string; accent?: string; icon: React.ReactNode;
+function OnboardingWizard({ open, initialName, userId, onComplete }: {
+  open: boolean; initialName: string; userId: string; onComplete: () => void;
 }) {
+  const [step, setStep] = useState<OnboardStep>(1);
+  const [data, setData] = useState<OnboardData>({
+    name: initialName, age: "", state: "Maharashtra",
+    occupation_type: "freelancer", pan_number: "", opted_44ADA: true,
+  });
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (initialName && !data.name) setData(d => ({ ...d, name: initialName }));
+  }, [initialName]);
+
+  function set<K extends keyof OnboardData>(key: K, value: OnboardData[K]) {
+    setData(d => ({ ...d, [key]: value }));
+    setError("");
+  }
+
+  function nextStep() {
+    if (step === 1) {
+      if (!data.name.trim()) { setError("Please enter your name."); return; }
+      const age = parseInt(data.age);
+      if (!data.age || isNaN(age) || age < 18 || age > 80) { setError("Enter a valid age (18–80)."); return; }
+    }
+    if (step === 2 && !data.state) { setError("Please select your state."); return; }
+    setStep(s => (s + 1) as OnboardStep);
+    setError("");
+  }
+
+  async function submit() {
+    setSubmitting(true);
+    setError("");
+    try {
+      await api.createUser({
+        user_id: userId,
+        name: data.name.trim(),
+        state: data.state,
+        occupation_type: data.occupation_type,
+        age: parseInt(data.age),
+        opted_44ADA: data.opted_44ADA,
+        pan_number: data.pan_number.trim().toUpperCase() || undefined,
+      });
+      onComplete();
+    } catch (err: any) {
+      if ((err.message ?? "").toLowerCase().includes("already exists")) { onComplete(); return; }
+      setError(err.message || "Something went wrong. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const inp = "w-full h-11 px-3.5 rounded-xl border border-[#e8e2d5] bg-white text-[#1a1a2e] text-sm focus:outline-none focus:border-[#d97706] focus:ring-1 focus:ring-[#d97706]/30 transition-all placeholder:text-[#c4b99d]";
+  const lbl = "block text-xs font-bold text-[#1a1a2e] uppercase tracking-wider mb-1.5";
+
   return (
-    <div className="bg-[#fdfbf7] border border-[#e8e2d5] rounded-2xl p-4 flex items-start gap-3">
-      <div className="w-9 h-9 rounded-xl bg-[#f4ebd9] flex items-center justify-center shrink-0">
-        {icon}
-      </div>
-      <div className="min-w-0">
-        <p className="text-[10px] font-bold text-[#8c8577] uppercase tracking-widest mb-0.5">{label}</p>
-        <p className={`text-lg font-bold leading-none ${accent ?? "text-[#1a1a2e]"}`}>{value}</p>
-        {sub && <p className="text-[10px] text-[#8c8577] mt-0.5">{sub}</p>}
-      </div>
+    <Dialog open={open}>
+      <DialogContent className="sm:max-w-md bg-[#fdfbf7] border border-[#e8e2d5] rounded-2xl shadow-2xl outline-none p-0 overflow-hidden">
+        {/* Header with progress */}
+        <div className="bg-[#1a1a2e] px-6 pt-6 pb-4">
+          <div className="flex items-center gap-2 mb-4">
+            {([1, 2, 3] as OnboardStep[]).map((s) => (
+              <div key={s} className="flex items-center gap-2">
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                  step > s ? "bg-[#d97706] text-white" :
+                  step === s ? "bg-white text-[#1a1a2e]" :
+                  "bg-white/20 text-white/40"
+                }`}>
+                  {step > s ? <Check className="w-3.5 h-3.5" /> : s}
+                </div>
+                {s < 3 && <div className={`h-0.5 w-10 rounded ${step > s ? "bg-[#d97706]" : "bg-white/20"}`} />}
+              </div>
+            ))}
+          </div>
+          <DialogTitle className="text-white font-['Playfair_Display'] text-xl font-bold leading-none">
+            {step === 1 ? "Welcome to GigSaathi" : step === 2 ? "Your Location & Work" : "Tax Preferences"}
+          </DialogTitle>
+          <DialogDescription className="text-white/60 text-xs mt-1">
+            {step === 1 ? "Let's set up your profile to calculate your taxes accurately." :
+             step === 2 ? "This helps us apply the correct state tax rules." :
+             "Used for ITR-4 generation. PAN is optional but recommended."}
+          </DialogDescription>
+        </div>
+
+        <div className="px-6 py-5 space-y-4">
+          {/* Step 1 */}
+          {step === 1 && (
+            <>
+              <div>
+                <label className={lbl}>Full Name</label>
+                <input autoFocus value={data.name} onChange={e => set("name", e.target.value)} placeholder="e.g. Priya Sharma" className={inp} />
+              </div>
+              <div>
+                <label className={lbl}>Age</label>
+                <input type="number" value={data.age} onChange={e => set("age", e.target.value)} placeholder="25" min="18" max="80" className={inp} />
+              </div>
+            </>
+          )}
+
+          {/* Step 2 */}
+          {step === 2 && (
+            <>
+              <div>
+                <label className={lbl}>State</label>
+                <select value={data.state} onChange={e => set("state", e.target.value)} className={inp}>
+                  {STATES_OF_INDIA.map(s => <option key={s}>{s}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={lbl}>Primary Work Type</label>
+                <div className="space-y-2">
+                  {OCCUPATIONS.map(o => (
+                    <button key={o.value} type="button" onClick={() => set("occupation_type", o.value)}
+                      className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border text-left transition-all ${
+                        data.occupation_type === o.value ? "border-[#d97706] bg-[#f4ebd9]/50" : "border-[#e8e2d5] hover:border-[#d97706]/40"
+                      }`}>
+                      <div>
+                        <p className="text-sm font-semibold text-[#1a1a2e]">{o.label}</p>
+                        <p className="text-xs text-[#8c8577]">{o.sub}</p>
+                      </div>
+                      {data.occupation_type === o.value && (
+                        <div className="w-5 h-5 rounded-full bg-[#d97706] flex items-center justify-center shrink-0">
+                          <Check className="w-3 h-3 text-white" />
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Step 3 */}
+          {step === 3 && (
+            <>
+              <div>
+                <label className={lbl}>PAN Number <span className="text-[#8c8577] normal-case font-normal">(optional)</span></label>
+                <input value={data.pan_number} onChange={e => set("pan_number", e.target.value.toUpperCase())} placeholder="ABCDE1234F" maxLength={10} className={`${inp} uppercase`} />
+                <p className="text-[10px] text-[#8c8577] mt-1">Required for ITR-4 filing. You can add this later.</p>
+              </div>
+              <div>
+                <label className={lbl}>Taxation Method</label>
+                <div className="space-y-2">
+                  {[
+                    { val: true,  label: "Section 44ADA — Presumptive",  sub: "50% of income auto-exempt. Recommended for most gig workers." },
+                    { val: false, label: "Regular Taxation",             sub: "Track actual expenses and claim deductions manually." },
+                  ].map(opt => (
+                    <button key={String(opt.val)} type="button" onClick={() => set("opted_44ADA", opt.val)}
+                      className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border text-left transition-all ${
+                        data.opted_44ADA === opt.val ? "border-[#d97706] bg-[#f4ebd9]/50" : "border-[#e8e2d5] hover:border-[#d97706]/40"
+                      }`}>
+                      <div>
+                        <p className="text-sm font-semibold text-[#1a1a2e]">{opt.label}</p>
+                        <p className="text-xs text-[#8c8577] mt-0.5">{opt.sub}</p>
+                      </div>
+                      {data.opted_44ADA === opt.val && (
+                        <div className="w-5 h-5 rounded-full bg-[#d97706] flex items-center justify-center shrink-0">
+                          <Check className="w-3 h-3 text-white" />
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          {error && (
+            <p className="flex items-center gap-2 text-xs text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2.5">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />{error}
+            </p>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 pb-6 flex gap-3">
+          {step > 1 && (
+            <button onClick={() => setStep(s => (s - 1) as OnboardStep)}
+              className="h-11 px-5 rounded-xl border border-[#e8e2d5] text-sm font-medium text-[#6b675d] hover:bg-[#f4ebd9]/30 transition-colors">
+              Back
+            </button>
+          )}
+          {step < 3 ? (
+            <button onClick={nextStep}
+              className="flex-1 h-11 rounded-xl bg-[#d97706] hover:bg-[#b46204] text-white font-semibold text-sm flex items-center justify-center gap-2 transition-colors">
+              Continue <ChevronRight className="w-4 h-4" />
+            </button>
+          ) : (
+            <button onClick={submit} disabled={submitting}
+              className="flex-1 h-11 rounded-xl bg-[#1a1a2e] hover:bg-[#2d2d4e] text-white font-semibold text-sm flex items-center justify-center gap-2 transition-colors disabled:opacity-50">
+              {submitting ? <><Loader2 className="w-4 h-4 animate-spin" />Setting up…</> : <>Save Profile <ChevronRight className="w-4 h-4" /></>}
+            </button>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Card primitives ────────────────────────────────────────────────────────────
+
+function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div className={`bg-[#fdfbf7] border border-[#e8e2d5] rounded-2xl ${className}`}>
+      {children}
     </div>
   );
 }
 
-function EmptyPanel({ icon, title, desc }: { icon: React.ReactNode; title: string; desc: string }) {
+function CardHeader({ icon, title, right }: { icon: React.ReactNode; title: string; right?: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-[#e8e2d5]">
+      <div className="flex items-center gap-2">
+        <div className="w-7 h-7 rounded-lg bg-[#f4ebd9] flex items-center justify-center">{icon}</div>
+        <span className="text-xs font-bold text-[#1a1a2e] uppercase tracking-wider">{title}</span>
+      </div>
+      {right}
+    </div>
+  );
+}
+
+function Skeleton({ className = "" }: { className?: string }) {
+  return <div className={`bg-[#f4ebd9]/50 rounded-xl animate-pulse ${className}`} />;
+}
+
+function EmptyState({ icon, title, desc, action }: {
+  icon: React.ReactNode; title: string; desc: string; action?: React.ReactNode;
+}) {
   return (
     <div className="flex flex-col items-center justify-center py-10 text-center space-y-3">
       <div className="w-12 h-12 rounded-2xl bg-[#f4ebd9] flex items-center justify-center">{icon}</div>
       <div>
         <p className="text-sm font-semibold text-[#1a1a2e]">{title}</p>
-        <p className="text-xs text-[#8c8577] max-w-[200px] mt-1">{desc}</p>
+        <p className="text-xs text-[#8c8577] max-w-xs mx-auto mt-1 leading-relaxed">{desc}</p>
       </div>
+      {action}
     </div>
   );
 }
 
-// ── Main Dashboard ────────────────────────────────────────────────────────────
+// ── Main Dashboard ─────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
   const { userId, name, isLoaded } = useAuth();
   const uid = userId ?? "";
-  const queryClient = useQueryClient();
+  const qc = useQueryClient();
 
-  // ── Onboarding ──
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [onboardName, setOnboardName] = useState(name ?? "");
-  const [onboardAge, setOnboardAge] = useState("25");
-  const [onboardState, setOnboardState] = useState("Maharashtra");
-  const [onboardOcc, setOnboardOcc] = useState("freelancer");
-  const [onboardPan, setOnboardPan] = useState("");
-  const [onboardSubmitting, setOnboardSubmitting] = useState(false);
-  const [onboardError, setOnboardError] = useState("");
 
-  useEffect(() => { if (name && !onboardName) setOnboardName(name); }, [name]);
-
-  // ── Data Fetching ──
   const userQ = useQuery<UserProfile>({
     queryKey: ["userProfile", uid],
     queryFn: () => api.getUser(uid),
-    enabled: !!uid,
+    enabled: !!uid && isLoaded,
     retry: false,
   });
 
-  const isNewUser = !!uid && userQ.isError &&
+  const isNewUser =
+    !!uid && userQ.isError &&
     ((userQ.error as any)?.message?.toLowerCase().includes("not found") ||
       (userQ.error as any)?.status === 404);
 
-  // Chat is only allowed once we have a confirmed profile in MongoDB
-  const profileReady = !!uid && !!userQ.data && !isNewUser;
+  const profileReady = !!uid && !!userQ.data;
 
-  // Open onboarding dialog exactly once when we detect a 404 (new user).
-  // State is independent of query re-renders so the dialog stays stable.
   useEffect(() => {
-    if (isNewUser && !userQ.isLoading) {
-      setShowOnboarding(true);
-    }
+    if (isNewUser && !userQ.isLoading) setShowOnboarding(true);
   }, [isNewUser, userQ.isLoading]);
-
 
   const incomeQ = useQuery<IncomeSummary>({
     queryKey: ["income", uid],
     queryFn: () => api.getIncome(uid),
-    enabled: !!uid && !isNewUser && !userQ.isLoading,
+    enabled: profileReady,
     retry: false,
   });
-
   const taxQ = useQuery<TaxResult>({
     queryKey: ["tax", uid],
     queryFn: () => api.getTax(uid),
-    enabled: !!uid && !isNewUser && !userQ.isLoading,
+    enabled: profileReady,
     retry: false,
   });
-
   const deadlinesQ = useQuery<DeadlinesResult>({
     queryKey: ["deadlines", uid],
     queryFn: () => api.getDeadlines(uid),
-    enabled: !!uid && !isNewUser && !userQ.isLoading,
+    enabled: profileReady,
     retry: false,
   });
 
-  // ── Chat state ──
-  const [messages, setMessages] = useState<Msg[]>([]);
-  const [input, setInput] = useState("");
-  const [streaming, setStreaming] = useState(false);
-  const [chatError, setChatError] = useState("");
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const abortRef = useRef<AbortController | null>(null);
+  function refresh() {
+    qc.invalidateQueries({ queryKey: ["income", uid] });
+    qc.invalidateQueries({ queryKey: ["tax", uid] });
+    qc.invalidateQueries({ queryKey: ["deadlines", uid] });
+  }
 
-  // Welcome message: fire once on mount using the name already available from Clerk
-  useEffect(() => {
-    if (messages.length === 0) {
-      const userName = name ?? null;
-      setMessages([{
-        id: 0,
-        role: "ai",
-        text: `Namaste${userName ? ` ${userName}` : ""}! 🙏\n\nI am your **GigSaathi AI Tax Advisor**, powered by Gemini.\n\nI can:\n- Calculate your exact Section 44ADA tax liability\n- Parse your Swiggy / Uber / Upwork payout PDFs\n- Tell you upcoming advance tax deadlines\n- Generate your ITR-4 computation worksheet\n\nAsk me anything, or **attach a payout statement PDF** using the 📎 button below.`,
-      }]);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  function handleOnboardComplete() {
+    setShowOnboarding(false);
+    qc.invalidateQueries({ queryKey: ["userProfile", uid] });
+    refresh();
+  }
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, streaming]);
+  const income   = incomeQ.data;
+  const tax      = taxQ.data;
+  const dl       = deadlinesQ.data;
+  const hasData  = (income?.record_count ?? 0) > 0;
+  const next     = dl?.next_deadline;
 
-  // ── Streaming Chat via SSE ──
-  const sendMessage = useCallback(async (text: string) => {
-    if (!text.trim() || streaming) return;
-    setChatError("");
-
-    // Block chat until profile is confirmed in MongoDB
-    if (!profileReady) {
-      if (showOnboarding) {
-        setChatError("Please complete your profile setup first — fill in the form above.");
-      } else {
-        setChatError("Profile is still loading, please wait a moment…");
-      }
-      return;
-    }
-
-    const userMsg: Msg = { id: Date.now(), role: "user", text: text.trim() };
-    setMessages(prev => [...prev, userMsg]);
-    setInput("");
-    setStreaming(true);
-
-    // Create placeholder AI message
-    const aiId = Date.now() + 1;
-    setMessages(prev => [...prev, { id: aiId, role: "ai", text: "", streaming: true }]);
-
-    const ctrl = new AbortController();
-    abortRef.current = ctrl;
-
-    try {
-      const res = await fetch(`${BASE}/chat/stream`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: uid, message: text.trim() }),
-        signal: ctrl.signal,
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: res.statusText }));
-        throw new Error(err.detail ?? "Failed to reach AI");
-      }
-
-      const reader = res.body!.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let fullText = "";
-      let toolsCalled: string[] = [];
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          try {
-            const event = JSON.parse(line.slice(6));
-            if (event.type === "content") {
-              fullText += event.content;
-              setMessages(prev =>
-                prev.map(m => m.id === aiId ? { ...m, text: fullText, streaming: true } : m)
-              );
-            } else if (event.type === "tool_call") {
-              toolsCalled = [...toolsCalled, event.content];
-              setMessages(prev =>
-                prev.map(m => m.id === aiId ? { ...m, tools: toolsCalled } : m)
-              );
-              // Refresh panels when tools are called
-              queryClient.invalidateQueries({ queryKey: ["income", uid] });
-              queryClient.invalidateQueries({ queryKey: ["tax", uid] });
-              queryClient.invalidateQueries({ queryKey: ["deadlines", uid] });
-            } else if (event.type === "done") {
-              setMessages(prev =>
-                prev.map(m => m.id === aiId
-                  ? { ...m, text: fullText || "Done.", streaming: false, tools: event.tools_called }
-                  : m)
-              );
-            } else if (event.type === "error") {
-              throw new Error(event.content);
-            }
-          } catch { /* ignore parse errors on non-json lines */ }
-        }
-      }
-
-      setMessages(prev =>
-        prev.map(m => m.id === aiId ? { ...m, streaming: false } : m)
-      );
-    } catch (e: any) {
-      if (e.name === "AbortError") return;
-      const msg = e.message ?? "";
-      const isNetworkError = msg === "Failed to fetch" || msg.includes("NetworkError") || msg.includes("fetch");
-      const is404 = msg.toLowerCase().includes("not found");
-      const friendlyError = is404
-        ? "Profile not found — please complete your onboarding profile first."
-        : isNetworkError
-        ? "Cannot reach the backend server. Is it running on port 8000?"
-        : msg || "Could not reach the AI agent";
-      setChatError(friendlyError);
-      setMessages(prev => prev.map(m =>
-        m.id === aiId
-          ? { ...m, text: is404
-              ? "It looks like your profile hasn't been set up yet. Please fill in the onboarding form to get started!"
-              : "I could not connect to the backend server. Please make sure it is running on port 8000.",
-            streaming: false }
-          : m
-      ));
-    } finally {
-      setStreaming(false);
-      abortRef.current = null;
-    }
-  }, [streaming, uid, isNewUser, queryClient]);
-
-  // ── File Upload via Chat ──
-  const handleFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.name.toLowerCase().endsWith(".pdf")) {
-      setChatError("Only PDF files are supported.");
-      return;
-    }
-
-    setChatError("");
-    const userMsg: Msg = { id: Date.now(), role: "user", text: `📎 Uploading: **${file.name}**` };
-    const aiId = Date.now() + 1;
-    setMessages(prev => [...prev, userMsg, { id: aiId, role: "ai", text: "", streaming: true }]);
-    setStreaming(true);
-
-    try {
-      const result = await api.uploadPdfs(uid || "demo_user", [file]);
-      const r = result.file_results?.[0];
-      let reply = `📄 **Parsed ${file.name}** using Multimodal AI.\n\n`;
-      if (r?.status === "success") {
-        reply += `- Platform detected: **${r.platform_detected?.toUpperCase()}**\n- Transactions extracted: **${r.records_stored}**\n- Gross income: **${INR(r.total_gross_income)}**\n\nYour Tax Registry on the right has been updated!`;
-      } else {
-        reply += r?.error ?? "Could not parse the file.";
-      }
-      if (result.duplicate_detection?.duplicates_flagged > 0) {
-        reply += `\n\n⚠️ ${result.duplicate_detection.duplicates_flagged} duplicate transactions were excluded.`;
-      }
-      setMessages(prev => prev.map(m =>
-        m.id === aiId ? { ...m, text: reply, streaming: false } : m
-      ));
-      queryClient.invalidateQueries({ queryKey: ["income", uid] });
-      queryClient.invalidateQueries({ queryKey: ["tax", uid] });
-      queryClient.invalidateQueries({ queryKey: ["deadlines", uid] });
-    } catch (err: any) {
-      setMessages(prev => prev.map(m =>
-        m.id === aiId
-          ? { ...m, text: `Upload failed: ${err.message}`, streaming: false }
-          : m
-      ));
-    } finally {
-      setStreaming(false);
-      if (fileRef.current) fileRef.current.value = "";
-    }
-  }, [uid, queryClient]);
-
-  // ── Onboarding Submit ──
-  const handleOnboard = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!onboardName.trim()) { setOnboardError("Name is required"); return; }
-    const age = parseInt(onboardAge);
-    if (isNaN(age) || age < 18 || age > 120) { setOnboardError("Enter a valid age (18–120)"); return; }
-    setOnboardSubmitting(true);
-    setOnboardError("");
-    try {
-      await api.createUser({
-        user_id: uid,
-        name: onboardName.trim(),
-        state: onboardState,
-        occupation_type: onboardOcc,
-        age,
-        opted_44ADA: true,
-        pan_number: onboardPan.trim().toUpperCase() || undefined,
-      });
-      // Profile created — close dialog and refresh all data
-      setShowOnboarding(false);
-      queryClient.invalidateQueries({ queryKey: ["userProfile", uid] });
-      queryClient.invalidateQueries({ queryKey: ["income", uid] });
-      queryClient.invalidateQueries({ queryKey: ["tax", uid] });
-      queryClient.invalidateQueries({ queryKey: ["deadlines", uid] });
-    } catch (err: any) {
-      // If user already exists (409) just close the dialog
-      if ((err.message ?? "").toLowerCase().includes("already exists")) {
-        setShowOnboarding(false);
-        queryClient.invalidateQueries({ queryKey: ["userProfile", uid] });
-      } else {
-        setOnboardError(err.message ?? "Something went wrong.");
-      }
-    } finally {
-      setOnboardSubmitting(false);
-    }
-  };
-
-  // ── Derived data ──
-  const income = incomeQ.data;
-  const tax = taxQ.data;
-  const deadlines = deadlinesQ.data;
-  const hasIncome = (income?.record_count ?? 0) > 0;
-  const nextDeadline = deadlines?.next_deadline;
-
-  const SUGGESTIONS = [
-    "What is my total tax liability?",
-    "How can I reduce my tax this year?",
-    "When is my next advance tax deadline?",
-    "Explain Section 44ADA in simple words",
-  ];
-
-  // Clerk-level loading is already handled by App.tsx — no need to block here.
-  // If userQ is still loading, panels just show their empty/skeleton states inline.
+  const user = userQ.data;
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-[#faf7f2]">
+    <div className="h-full overflow-y-auto bg-[#faf7f2] pb-20 md:pb-0">
+      <OnboardingWizard
+        open={showOnboarding}
+        initialName={name ?? ""}
+        userId={uid}
+        onComplete={handleOnboardComplete}
+      />
 
-      {/* ── Onboarding Dialog ── */}
-      <Dialog open={showOnboarding}>
-        <DialogContent className="sm:max-w-md bg-[#fdfbf7] border border-[#e8e2d5] rounded-2xl shadow-2xl outline-none">
-          <DialogHeader>
-            <DialogTitle className="font-['Playfair_Display'] text-2xl font-bold text-[#1a1a2e] flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-[#d97706] animate-pulse" />
-              Welcome to GigSaathi
-            </DialogTitle>
-            <DialogDescription className="text-[#6b675d] text-sm">
-              Set up your profile once — GigSaathi will tailor every calculation to you.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleOnboard} className="space-y-4 pt-1">
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#1a1a2e] uppercase tracking-wider">Your Name</label>
-              <input value={onboardName} onChange={e => setOnboardName(e.target.value)}
-                placeholder="Priya Sharma" required
-                className="w-full h-11 px-3.5 rounded-xl border border-[#e8e2d5] bg-white text-[#1a1a2e] text-sm focus:outline-none focus:border-[#d97706] focus:ring-1 focus:ring-[#d97706]" />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-[#1a1a2e] uppercase tracking-wider">State</label>
-                <select value={onboardState} onChange={e => setOnboardState(e.target.value)}
-                  className="w-full h-11 px-3 rounded-xl border border-[#e8e2d5] bg-white text-[#1a1a2e] text-sm focus:outline-none focus:border-[#d97706]">
-                  {STATES_OF_INDIA.map(s => <option key={s}>{s}</option>)}
-                </select>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-[#1a1a2e] uppercase tracking-wider">Age</label>
-                <input type="number" value={onboardAge} onChange={e => setOnboardAge(e.target.value)}
-                  min="18" max="120" required
-                  className="w-full h-11 px-3.5 rounded-xl border border-[#e8e2d5] bg-white text-[#1a1a2e] text-sm focus:outline-none focus:border-[#d97706]" />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#1a1a2e] uppercase tracking-wider">Primary Occupation</label>
-              <select value={onboardOcc} onChange={e => setOnboardOcc(e.target.value)}
-                className="w-full h-11 px-3 rounded-xl border border-[#e8e2d5] bg-white text-[#1a1a2e] text-sm focus:outline-none focus:border-[#d97706]">
-                {OCCUPATIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#1a1a2e] uppercase tracking-wider">PAN Number <span className="text-[#8c8577] normal-case font-normal">(optional)</span></label>
-              <input value={onboardPan} onChange={e => setOnboardPan(e.target.value)}
-                placeholder="ABCDE1234F" maxLength={10}
-                className="w-full h-11 px-3.5 rounded-xl border border-[#e8e2d5] bg-white text-[#1a1a2e] text-sm uppercase placeholder:normal-case placeholder:text-[#c4b99d] focus:outline-none focus:border-[#d97706]" />
-            </div>
-            {onboardError && (
-              <p className="text-xs text-red-500 bg-red-50 border border-red-100 rounded-lg p-2.5 flex items-center gap-1.5">
-                <AlertCircle className="w-3.5 h-3.5 shrink-0" />{onboardError}
-              </p>
-            )}
-            <DialogFooter className="pt-1">
-              <button type="submit" disabled={onboardSubmitting}
-                className="w-full h-11 rounded-xl bg-[#d97706] hover:bg-[#b46204] text-white font-semibold flex items-center justify-center gap-2 transition-colors disabled:opacity-50 text-sm">
-                {onboardSubmitting
-                  ? <><Loader2 className="w-4 h-4 animate-spin" /> Setting up…</>
-                  : <>Create Profile &amp; Enter Workspace <ChevronRight className="w-4 h-4" /></>}
+      {/* ── Page header ── */}
+      <div className="sticky top-0 z-10 bg-[#faf7f2]/90 backdrop-blur-sm border-b border-[#e8e2d5]">
+        <div className="max-w-5xl mx-auto px-5 md:px-8 h-14 flex items-center justify-between">
+          <div>
+            <p className="text-[10px] font-bold text-[#d97706] uppercase tracking-widest leading-none">FY 2025–26</p>
+            <h1 className="font-['Playfair_Display'] text-lg font-semibold text-[#1a1a2e] leading-tight">
+              {user?.name ?? name ?? "Dashboard"}
+            </h1>
+          </div>
+          <div className="flex items-center gap-2">
+            {/* Refresh */}
+            <button
+              onClick={refresh}
+              disabled={incomeQ.isFetching || taxQ.isFetching}
+              className="w-8 h-8 rounded-lg border border-[#e8e2d5] flex items-center justify-center text-[#8c8577] hover:text-[#d97706] hover:border-[#d97706]/30 transition-all disabled:opacity-40"
+              title="Refresh"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${incomeQ.isFetching ? "animate-spin" : ""}`} />
+            </button>
+
+            {/* Status chip */}
+            {userQ.isLoading || !isLoaded ? (
+              <span className="flex items-center gap-1.5 text-[10px] font-semibold text-[#8c8577] bg-[#f4ebd9]/40 border border-[#e8e2d5] px-2.5 py-1 rounded-full">
+                <Loader2 className="w-3 h-3 animate-spin" /> Loading…
+              </span>
+            ) : isNewUser ? (
+              <button
+                onClick={() => setShowOnboarding(true)}
+                className="flex items-center gap-1.5 text-[10px] font-semibold text-[#d97706] bg-[#f4ebd9] border border-[#d97706]/20 px-2.5 py-1 rounded-full hover:bg-amber-100 transition-colors"
+              >
+                <User className="w-3 h-3" /> Complete Profile
               </button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Top bar ── */}
-      <header className="flex items-center justify-between px-5 md:px-8 h-14 border-b border-[#e8e2d5] shrink-0 bg-[#fdfbf7]/80 backdrop-blur-sm">
-        <div>
-          <span className="text-[10px] font-bold text-[#d97706] uppercase tracking-widest">FY 2025–26 · Agent Workspace</span>
-          <h1 className="font-['Playfair_Display'] text-lg font-semibold text-[#1a1a2e] leading-none">
-            {userQ.data?.name ?? name ?? "GigSaathi"}
-          </h1>
+            ) : (
+              <span className="flex items-center gap-1.5 text-[10px] font-semibold text-green-600 bg-green-50 border border-green-100 px-2.5 py-1 rounded-full">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /> Active
+              </span>
+            )}
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => {
-              queryClient.invalidateQueries({ queryKey: ["income", uid] });
-              queryClient.invalidateQueries({ queryKey: ["tax", uid] });
-              queryClient.invalidateQueries({ queryKey: ["deadlines", uid] });
-            }}
-            className="w-8 h-8 rounded-lg border border-[#e8e2d5] flex items-center justify-center text-[#8c8577] hover:text-[#d97706] hover:border-[#d97706]/40 transition-all"
-            title="Refresh data"
+      </div>
+
+      <div className="max-w-5xl mx-auto px-5 md:px-8 py-6 space-y-5">
+
+        {/* ── Setup banner for new users ── */}
+        {isNewUser && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center gap-4 bg-[#1a1a2e] text-white rounded-2xl px-5 py-4"
           >
-            <RefreshCw className="w-3.5 h-3.5" />
-          </button>
-          <span className="flex items-center gap-1.5 text-[10px] font-semibold text-green-600 bg-green-50 border border-green-100 px-2.5 py-1 rounded-full">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-            Gemini Agent Active
-          </span>
-        </div>
-      </header>
-
-      {/* ── Main split layout ── */}
-      <div className="flex-1 flex overflow-hidden min-h-0">
-
-        {/* ════════════════════════════════════════════════
-            LEFT PANE — AI Agent Chat
-        ════════════════════════════════════════════════ */}
-        <div className="flex flex-col w-full lg:w-[52%] xl:w-[48%] border-r border-[#e8e2d5] bg-[#fdfbf7] shrink-0 overflow-hidden">
-
-          {/* Pane header */}
-          <div className="px-4 py-2.5 border-b border-[#e8e2d5] bg-[#fdfbf7] flex items-center justify-between shrink-0">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-[#f4ebd9] flex items-center justify-center">
-                <Bot className="w-3.5 h-3.5 text-[#d97706]" />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-[#1a1a2e]">GigSaathi Copilot</p>
-                <p className="text-[9px] text-[#8c8577]">Gemini · Function Calling · Real Data</p>
-              </div>
+            <div className="w-10 h-10 rounded-xl bg-[#d97706]/20 flex items-center justify-center shrink-0">
+              <User className="w-5 h-5 text-[#d97706]" />
             </div>
-            {streaming && (
-              <button onClick={() => abortRef.current?.abort()}
-                className="flex items-center gap-1 text-[10px] text-red-500 hover:text-red-700 border border-red-200 bg-red-50 px-2 py-1 rounded-full transition-colors">
-                <X className="w-3 h-3" /> Stop
-              </button>
-            )}
-          </div>
+            <div className="flex-1">
+              <p className="text-sm font-bold">Welcome! Let's set up your profile.</p>
+              <p className="text-xs text-white/60 mt-0.5">It takes under 60 seconds. We need a few details to calculate your tax correctly.</p>
+            </div>
+            <button
+              onClick={() => setShowOnboarding(true)}
+              className="shrink-0 h-9 px-5 rounded-xl bg-[#d97706] hover:bg-[#b46204] text-white text-xs font-bold transition-colors flex items-center gap-1.5"
+            >
+              Get Started <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </motion.div>
+        )}
 
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            <AnimatePresence initial={false}>
-              {messages.map((msg) => (
-                <motion.div key={msg.id}
-                  initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                  className={`flex items-end gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                  {msg.role === "ai" && (
-                    <div className="w-7 h-7 rounded-full bg-[#f4ebd9] border border-[#e8e2d5] flex items-center justify-center shrink-0 mb-0.5">
-                      <Bot className="w-3.5 h-3.5 text-[#d97706]" />
-                    </div>
+        {/* ── Stat cards ── */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {[
+            {
+              label: "Gross Earnings",
+              value: incomeQ.isLoading ? null : hasData ? INR(income!.total_gross_income) : "—",
+              sub: hasData ? `${income!.record_count} transactions` : "No income data yet",
+              icon: <TrendingUp className="w-4 h-4 text-[#d97706]" />,
+              accent: "text-[#1a1a2e]",
+            },
+            {
+              label: "Tax Payable",
+              value: taxQ.isLoading ? null : tax ? INR(tax.total_tax) : "—",
+              sub: tax ? "44ADA presumptive" : "Not calculated yet",
+              icon: <FileText className="w-4 h-4 text-[#d97706]" />,
+              accent: "text-[#1a1a2e]",
+            },
+            {
+              label: "Balance Due",
+              value: taxQ.isLoading ? null : tax ? INR(tax.net_payable) : "—",
+              sub: tax ? `TDS: ${INR(tax.tds_credit)}` : "After TDS deduction",
+              icon: <IndianRupee className="w-4 h-4 text-[#d97706]" />,
+              accent: tax && tax.net_payable > 0 ? "text-red-600" : "text-green-600",
+            },
+            {
+              label: "Next Deadline",
+              value: deadlinesQ.isLoading ? null : next ? INR(next.amount_due) : "—",
+              sub: next ? next.due_date : "No advance tax due",
+              icon: <Calendar className="w-4 h-4 text-[#d97706]" />,
+              accent: next?.alert_level === "urgent" ? "text-red-600" : "text-[#d97706]",
+            },
+          ].map(c => (
+            <div key={c.label} className="bg-[#fdfbf7] border border-[#e8e2d5] rounded-2xl p-4">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-xl bg-[#f4ebd9] flex items-center justify-center shrink-0">{c.icon}</div>
+                <div className="min-w-0">
+                  <p className="text-[9px] font-bold text-[#8c8577] uppercase tracking-widest mb-1">{c.label}</p>
+                  {c.value === null ? (
+                    <Skeleton className="h-5 w-20 mt-1" />
+                  ) : (
+                    <p className={`text-base font-bold leading-none ${c.accent}`}>{c.value}</p>
                   )}
-                  <div className="flex flex-col gap-1 max-w-[82%]">
-                    {/* Tool badges */}
-                    {msg.tools && msg.tools.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {msg.tools.map(t => (
-                          <span key={t} className="flex items-center gap-1 text-[9px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
-                            <Zap className="w-2.5 h-2.5" />{t.replace(/_/g, " ")}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    {/* Bubble */}
-                    <div className={`rounded-2xl px-3.5 py-2.5 text-[13px] ${
-                      msg.role === "user"
-                        ? "bg-[#1a1a2e] text-white rounded-br-sm"
-                        : "bg-white border border-[#e8e2d5] border-l-2 border-l-[#d97706] text-[#1a1a2e] rounded-bl-sm shadow-sm"
-                    }`}>
-                      {msg.streaming && !msg.text
-                        ? <Dots />
-                        : <RichText text={msg.text} />}
-                      {msg.streaming && msg.text && (
-                        <motion.span animate={{ opacity: [1, 0] }} transition={{ duration: 0.5, repeat: Infinity }}
-                          className="inline-block w-0.5 h-3.5 bg-[#d97706] ml-0.5 align-middle" />
-                      )}
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-            <div ref={bottomRef} />
-          </div>
-
-          {/* Error banner */}
-          {chatError && (
-            <div className="mx-4 mb-2 flex items-center gap-2 bg-red-50 border border-red-100 rounded-xl px-3 py-2 text-[11px] text-red-600">
-              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-              <span className="flex-1">{chatError}</span>
-              <button onClick={() => setChatError("")}><X className="w-3.5 h-3.5" /></button>
+                  <p className="text-[10px] text-[#8c8577] mt-1 truncate">{c.sub}</p>
+                </div>
+              </div>
             </div>
-          )}
-
-          {/* Suggestions */}
-          <div className="px-4 pt-2 flex flex-wrap gap-1.5 shrink-0">
-            {SUGGESTIONS.map(s => (
-              <button key={s} onClick={() => sendMessage(s)} disabled={streaming || !profileReady}
-                className="text-[10px] px-2.5 py-1 rounded-full border border-[#e8e2d5] text-[#6b675d] hover:text-[#1a1a2e] hover:border-[#d97706]/40 hover:bg-[#f4ebd9]/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
-                {s}
-              </button>
-            ))}
-          </div>
-
-          {/* Input bar */}
-          <div className="px-4 pb-4 pt-2 shrink-0">
-            <div className="flex items-center gap-2 bg-white border border-[#e8e2d5] rounded-xl px-3 py-2 focus-within:border-[#d97706]/60 focus-within:ring-1 focus-within:ring-[#d97706]/20 transition-all shadow-sm">
-              <input
-                type="text"
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && !e.shiftKey && sendMessage(input)}
-                placeholder="Ask about your taxes, deadlines, deductions…"
-                className="flex-1 bg-transparent text-[#1a1a2e] text-sm placeholder:text-[#c4b99d] outline-none"
-              />
-              <input type="file" ref={fileRef} onChange={handleFile} accept=".pdf" className="hidden" />
-              {/* Upload works independently of profile — the backend accepts it per-user */}
-              <button onClick={() => fileRef.current?.click()} title="Upload PDF statement"
-                disabled={!uid || streaming}
-                className="p-1.5 rounded-lg text-[#8c8577] hover:text-[#d97706] hover:bg-[#f4ebd9]/40 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
-                <Paperclip className="w-4 h-4" />
-              </button>
-              <button onClick={() => sendMessage(input)} disabled={!input.trim() || streaming || !profileReady}
-                className="w-8 h-8 rounded-lg bg-[#d97706] hover:bg-[#b46204] flex items-center justify-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0">
-                <Send className="w-4 h-4 text-white" />
-              </button>
-            </div>
-            <p className="text-[9px] text-[#c4b99d] text-center mt-1.5">
-              {profileReady
-                ? "Attach payout PDFs (Swiggy, Uber, Upwork) · Agent calls real backend tools"
-                : showOnboarding
-                ? "⚠️ Complete your profile setup above to unlock chat"
-                : userQ.isLoading
-                ? "Loading your profile…"
-                : "Attach a PDF to get started — or complete your profile first"}
-            </p>
-          </div>
+          ))}
         </div>
 
-        {/* ════════════════════════════════════════════════
-            RIGHT PANE — Live Financial Dashboard
-        ════════════════════════════════════════════════ */}
-        <div className="hidden lg:flex flex-col flex-1 overflow-y-auto bg-[#faf7f2] p-5 space-y-5">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
 
-          {/* Stats row */}
-          <div className="grid grid-cols-2 gap-3">
-            <StatCard
-              label="Gross Earnings"
-              value={hasIncome ? INR(income!.total_gross_income) : "—"}
-              sub={hasIncome ? `${income!.record_count} transactions · ${Object.keys(income!.platform_breakdown).length} platforms` : "No data yet"}
-              icon={<TrendingUp className="w-4 h-4 text-[#d97706]" />}
+          {/* ── Tax Computation ── */}
+          <Card>
+            <CardHeader
+              icon={<FileText className="w-3.5 h-3.5 text-[#d97706]" />}
+              title="Tax Computation"
+              right={
+                <span className="text-[9px] font-bold text-[#d97706] bg-[#f4ebd9] px-2 py-0.5 rounded-full uppercase tracking-wider">
+                  Section 44ADA
+                </span>
+              }
             />
-            <StatCard
-              label="Tax Liability (44ADA)"
-              value={tax ? INR(tax.total_tax) : "—"}
-              sub={tax ? `Net payable: ${INR(tax.net_payable)}` : "No data yet"}
-              accent={tax && tax.net_payable > 0 ? "text-red-600" : undefined}
-              icon={<FileText className="w-4 h-4 text-[#d97706]" />}
-            />
-          </div>
-
-          {/* Next Deadline */}
-          <div className="bg-[#fdfbf7] border border-[#e8e2d5] rounded-2xl p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-[#d97706]" />
-                <span className="text-xs font-bold text-[#1a1a2e] uppercase tracking-wider">Next Advance Tax Deadline</span>
-              </div>
-              {deadlinesQ.isLoading && <Loader2 className="w-3.5 h-3.5 text-[#8c8577] animate-spin" />}
-            </div>
-            {nextDeadline ? (
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-base font-bold text-[#1a1a2e]">{nextDeadline.installment}</p>
-                  <p className="text-xs text-[#8c8577]">Due: {new Date(nextDeadline.due_date).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</p>
+            <div className="px-5 py-4">
+              {taxQ.isLoading ? (
+                <div className="space-y-3">
+                  {[80, 64, 72, 56].map(w => <Skeleton key={w} className={`h-4 w-${w}%`} />)}
                 </div>
-                <div className="text-right">
-                  <p className="text-lg font-bold text-[#d97706]">{INR(nextDeadline.amount_due)}</p>
-                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                    nextDeadline.alert_level === "urgent"
-                      ? "bg-red-100 text-red-600"
-                      : nextDeadline.alert_level === "warning"
-                      ? "bg-amber-100 text-amber-700"
-                      : "bg-green-100 text-green-700"
-                  }`}>
-                    {nextDeadline.days_remaining != null
-                      ? nextDeadline.days_remaining > 0
-                        ? `${nextDeadline.days_remaining} days left`
-                        : "Overdue"
-                      : nextDeadline.status}
+              ) : tax ? (
+                <div className="space-y-2.5 text-sm">
+                  {[
+                    { label: "Gross Receipts",          val: INR(tax.gross_income),         style: "text-[#1a1a2e] font-semibold" },
+                    { label: "50% Presumptive Deduction", val: `−${INR(tax.deduction_44ada)}`, style: "text-[#b45309]" },
+                    { label: "Net Taxable Income",       val: INR(tax.net_taxable_income),   style: "text-[#1a1a2e] font-semibold border-t border-[#e8e2d5] pt-2.5 mt-0.5" },
+                    { label: "Tax + 4% Cess",            val: INR(tax.total_tax),            style: "text-[#1a1a2e]" },
+                    { label: "TDS Deducted",             val: `−${INR(tax.tds_credit)}`,     style: "text-blue-600" },
+                  ].map(r => (
+                    <div key={r.label} className={`flex justify-between ${r.style}`}>
+                      <span className="text-[#6b675d] font-normal">{r.label}</span>
+                      <span>{r.val}</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between items-center bg-[#f4ebd9]/60 rounded-xl px-3 py-2.5 mt-1 border-l-2 border-[#d97706]">
+                    <span className="text-xs font-bold text-[#b46204]">Balance Tax Due</span>
+                    <span className="font-bold text-[#1a1a2e]">{INR(tax.net_payable)}</span>
+                  </div>
+                </div>
+              ) : (
+                <EmptyState
+                  icon={<Zap className="w-5 h-5 text-[#d97706]" />}
+                  title="Tax not calculated yet"
+                  desc='Go to AI Tax Chat and ask "Calculate my tax" after uploading your income data.'
+                  action={
+                    <Link href="/app/chat">
+                      <button className="text-xs font-semibold text-[#d97706] border border-[#d97706]/30 px-3 py-1.5 rounded-full hover:bg-[#f4ebd9]/40 transition-colors">
+                        Open AI Tax Chat →
+                      </button>
+                    </Link>
+                  }
+                />
+              )}
+            </div>
+          </Card>
+
+          {/* ── Income by Platform ── */}
+          <Card>
+            <CardHeader
+              icon={<TrendingUp className="w-3.5 h-3.5 text-[#d97706]" />}
+              title="Income by Platform"
+            />
+            <div className="px-5 py-4">
+              {incomeQ.isLoading ? (
+                <div className="space-y-4">
+                  {[1, 2].map(i => <Skeleton key={i} className="h-8" />)}
+                </div>
+              ) : hasData ? (
+                <div className="space-y-4">
+                  {Object.entries(income!.platform_breakdown).map(([platform, d]) => {
+                    const pct = income!.total_gross_income > 0 ? (d.gross / income!.total_gross_income) * 100 : 0;
+                    return (
+                      <div key={platform}>
+                        <div className="flex justify-between text-xs mb-1.5">
+                          <span className="font-semibold text-[#1a1a2e] capitalize">{platform}</span>
+                          <div className="text-right">
+                            <span className="font-bold text-[#1a1a2e]">{INR(d.gross)}</span>
+                            <span className="text-[#8c8577] ml-2">{d.count} entries</span>
+                          </div>
+                        </div>
+                        <div className="w-full bg-[#f4ebd9] rounded-full h-1.5 overflow-hidden">
+                          <motion.div
+                            className="bg-[#d97706] h-full rounded-full"
+                            initial={{ width: 0 }}
+                            animate={{ width: `${pct}%` }}
+                            transition={{ duration: 0.6, ease: "easeOut" }}
+                          />
+                        </div>
+                        <p className="text-[10px] text-[#8c8577] mt-1">TDS: {INR(d.tds)} · {pct.toFixed(1)}% of total</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <EmptyState
+                  icon={<UploadCloud className="w-5 h-5 text-[#d97706]" />}
+                  title="No income data yet"
+                  desc="Upload payout PDFs from Swiggy, Uber, Upwork or your bank to get started."
+                  action={
+                    <Link href="/app/upload">
+                      <button className="text-xs font-semibold text-[#d97706] border border-[#d97706]/30 px-3 py-1.5 rounded-full hover:bg-[#f4ebd9]/40 transition-colors">
+                        Upload Documents →
+                      </button>
+                    </Link>
+                  }
+                />
+              )}
+            </div>
+          </Card>
+
+          {/* ── Advance Tax Schedule ── */}
+          <Card className="lg:col-span-2">
+            <CardHeader
+              icon={<Calendar className="w-3.5 h-3.5 text-[#d97706]" />}
+              title="Advance Tax Schedule — FY 2025–26"
+              right={
+                next?.alert_level === "urgent" ? (
+                  <span className="text-[10px] font-bold text-red-600 bg-red-50 border border-red-100 px-2.5 py-0.5 rounded-full">
+                    Deadline approaching!
                   </span>
+                ) : undefined
+              }
+            />
+            <div className="px-5 py-4">
+              {deadlinesQ.isLoading ? (
+                <div className="space-y-3">
+                  {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-12" />)}
+                </div>
+              ) : dl?.installments?.length ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {dl.installments.map((inst, i) => (
+                    <div key={i} className={`rounded-xl p-3.5 border ${
+                      inst.status === "paid"    ? "bg-green-50 border-green-100" :
+                      inst.status === "overdue" ? "bg-red-50 border-red-100"    :
+                      inst.status === "due"     ? "bg-amber-50 border-amber-100" :
+                      "bg-[#f4ebd9]/30 border-[#e8e2d5]"
+                    }`}>
+                      <div className="flex items-start justify-between mb-2">
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-[#8c8577]">Instalment {i + 1}</span>
+                        <span className={`text-[9px] font-bold uppercase ${
+                          inst.status === "paid"    ? "text-green-600" :
+                          inst.status === "overdue" ? "text-red-600"   :
+                          inst.status === "due"     ? "text-amber-700" :
+                          "text-[#8c8577]"
+                        }`}>{inst.status}</span>
+                      </div>
+                      <p className="text-base font-bold text-[#1a1a2e]">{INR(inst.amount_due)}</p>
+                      <p className="text-xs text-[#6b675d] mt-0.5">
+                        {new Date(inst.due_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                      </p>
+                      <p className="text-[10px] text-[#8c8577] mt-1">{inst.cumulative_percent}% cumulative</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState
+                  icon={<Calendar className="w-5 h-5 text-[#d97706]" />}
+                  title="Advance tax schedule not available"
+                  desc="The agent will generate your quarterly advance tax schedule after calculating your tax liability."
+                  action={
+                    <Link href="/app/chat">
+                      <button className="text-xs font-semibold text-[#d97706] border border-[#d97706]/30 px-3 py-1.5 rounded-full hover:bg-[#f4ebd9]/40 transition-colors">
+                        Ask AI Tax Chat →
+                      </button>
+                    </Link>
+                  }
+                />
+              )}
+            </div>
+          </Card>
+
+          {/* ── Profile Card ── */}
+          {user && (
+            <Card className="lg:col-span-2">
+              <CardHeader
+                icon={<User className="w-3.5 h-3.5 text-[#d97706]" />}
+                title="Your Profile"
+                right={
+                  <span className="text-[10px] font-semibold text-[#6b675d] bg-[#f4ebd9]/40 border border-[#e8e2d5] px-2.5 py-0.5 rounded-full">
+                    FY {user.financial_year}
+                  </span>
+                }
+              />
+              <div className="px-5 py-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  {[
+                    { label: "Name",           value: user.name },
+                    { label: "State",          value: user.state },
+                    { label: "Occupation",     value: user.occupation_type?.replace("_", " ") },
+                    { label: "Tax Regime",     value: user.opted_44ADA ? "Section 44ADA" : "Regular" },
+                    { label: "PAN",            value: user.pan_number ?? "Not provided" },
+                    { label: "Age",            value: String(user.age) },
+                    { label: "ITR Form",       value: "ITR-4 (Sugam)" },
+                    { label: "Assessment Year", value: "AY 2026–27" },
+                  ].map(f => (
+                    <div key={f.label}>
+                      <p className="text-[10px] font-bold text-[#8c8577] uppercase tracking-wider mb-0.5">{f.label}</p>
+                      <p className="font-semibold text-[#1a1a2e] capitalize">{f.value}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
-            ) : (
-              <EmptyPanel
-                icon={<Calendar className="w-5 h-5 text-[#d97706]" />}
-                title="No deadline data"
-                desc="Upload your payout PDFs and the agent will calculate your advance tax schedule"
-              />
-            )}
-          </div>
-
-          {/* Tax Breakdown */}
-          <div className="bg-[#fdfbf7] border border-[#e8e2d5] rounded-2xl p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <FileText className="w-4 h-4 text-[#d97706]" />
-              <span className="text-xs font-bold text-[#1a1a2e] uppercase tracking-wider">Tax Computation (Sec 44ADA)</span>
-            </div>
-            {tax ? (
-              <div className="space-y-2 text-xs">
-                {[
-                  { label: "Gross Receipts", val: INR(tax.gross_income), color: "text-[#1a1a2e] font-semibold" },
-                  { label: "Presumptive Deduction (50%)", val: `−${INR(tax.deduction_44ada)}`, color: "text-[#b45309]" },
-                  { label: "Net Taxable Income", val: INR(tax.net_taxable_income), color: "text-[#1a1a2e] font-bold" },
-                  { label: "Calculated Tax + Cess", val: INR(tax.total_tax), color: "text-[#1a1a2e]" },
-                  { label: "TDS Already Deducted", val: `−${INR(tax.tds_credit)}`, color: "text-blue-600" },
-                ].map(r => (
-                  <div key={r.label} className="flex justify-between items-center">
-                    <span className="text-[#6b675d]">{r.label}</span>
-                    <span className={r.color}>{r.val}</span>
-                  </div>
-                ))}
-                <div className="border-t border-[#e8e2d5] my-1" />
-                <div className="flex justify-between items-center bg-[#f4ebd9]/50 rounded-lg px-2.5 py-2 border-l-2 border-[#d97706]">
-                  <span className="font-bold text-[#b46204]">Balance Tax Payable</span>
-                  <span className="font-bold text-[#1a1a2e] text-sm">{INR(tax.net_payable)}</span>
-                </div>
-              </div>
-            ) : (
-              <EmptyPanel
-                icon={<TrendingUp className="w-5 h-5 text-[#d97706]" />}
-                title="Tax not calculated yet"
-                desc="Ask the agent to calculate your tax, or upload a payout PDF to get started"
-              />
-            )}
-          </div>
-
-          {/* Platform Breakdown */}
-          <div className="bg-[#fdfbf7] border border-[#e8e2d5] rounded-2xl p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <TrendingUp className="w-4 h-4 text-[#d97706]" />
-              <span className="text-xs font-bold text-[#1a1a2e] uppercase tracking-wider">Income by Platform</span>
-            </div>
-            {hasIncome ? (
-              <div className="space-y-2">
-                {Object.entries(income!.platform_breakdown).map(([platform, data]) => {
-                  const pct = income!.total_gross_income > 0
-                    ? (data.gross / income!.total_gross_income) * 100
-                    : 0;
-                  return (
-                    <div key={platform}>
-                      <div className="flex justify-between text-xs mb-1">
-                        <span className="font-semibold text-[#1a1a2e] capitalize">{platform}</span>
-                        <span className="text-[#6b675d]">{INR(data.gross)} · {data.count} entries</span>
-                      </div>
-                      <div className="w-full bg-[#f4ebd9] rounded-full h-1.5 overflow-hidden">
-                        <motion.div
-                          className="bg-[#d97706] h-full rounded-full"
-                          initial={{ width: 0 }}
-                          animate={{ width: `${pct}%` }}
-                          transition={{ duration: 0.6, ease: "easeOut" }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-                <p className="text-[10px] text-[#8c8577] pt-1">TDS deducted: {INR(income!.total_tds_deducted)} total</p>
-              </div>
-            ) : (
-              <EmptyPanel
-                icon={<UploadCloud className="w-5 h-5 text-[#d97706]" />}
-                title="No income data"
-                desc='Attach a payout PDF in the chat using the 📎 button'
-              />
-            )}
-          </div>
-
-          {/* All Deadlines */}
-          {deadlines?.installments && deadlines.installments.length > 0 && (
-            <div className="bg-[#fdfbf7] border border-[#e8e2d5] rounded-2xl p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Calendar className="w-4 h-4 text-[#d97706]" />
-                <span className="text-xs font-bold text-[#1a1a2e] uppercase tracking-wider">Full Advance Tax Schedule</span>
-              </div>
-              <div className="space-y-2">
-                {deadlines.installments.map((d, i) => (
-                  <div key={i} className={`flex items-center justify-between text-xs p-2.5 rounded-lg ${
-                    d.status === "paid" ? "bg-green-50 border border-green-100" :
-                    d.status === "overdue" ? "bg-red-50 border border-red-100" :
-                    d.status === "due" ? "bg-amber-50 border border-amber-100" :
-                    "bg-[#f4ebd9]/30 border border-[#e8e2d5]"
-                  }`}>
-                    <div>
-                      <p className="font-semibold text-[#1a1a2e]">{d.installment}</p>
-                      <p className="text-[10px] text-[#8c8577]">{new Date(d.due_date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} · {d.cumulative_percent}%</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold text-[#1a1a2e]">{INR(d.amount_due)}</p>
-                      <span className={`text-[9px] font-bold uppercase ${
-                        d.status === "paid" ? "text-green-600" :
-                        d.status === "overdue" ? "text-red-600" :
-                        d.status === "due" ? "text-amber-700" :
-                        "text-[#8c8577]"
-                      }`}>{d.status}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            </Card>
           )}
         </div>
       </div>

@@ -2,11 +2,12 @@ import { Switch, Route, Router as WouterRouter, Redirect, useLocation } from "wo
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   ClerkProvider, SignedIn, SignedOut, RedirectToSignIn,
-  useUser, useClerk,
+  useUser,
 } from "@clerk/clerk-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { AuthProvider } from "@/context/AuthContext";
+import { ClerkAuthProvider, DemoAuthProvider } from "@/context/AuthContext";
 import NotFound from "@/pages/not-found";
 
 import Landing from "@/pages/Landing";
@@ -25,6 +26,21 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
 });
 
+// Page transition wrapper
+function PageTransition({ children }: { children: React.ReactNode }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -4 }}
+      transition={{ duration: 0.22, ease: "easeInOut" }}
+      style={{ height: "100%", overflow: "auto" }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
 // Full-page loading spinner shown while Clerk initializes
 function ClerkLoadingScreen() {
   return (
@@ -40,7 +56,6 @@ function ClerkLoadingScreen() {
 function ProtectedApp() {
   const { isLoaded } = useUser();
 
-  // While Clerk is initializing, show loading screen instead of flashing
   if (!isLoaded) return <ClerkLoadingScreen />;
 
   return (
@@ -48,14 +63,7 @@ function ProtectedApp() {
       <SignedIn>
         <AppLayout>
           <WouterRouter base="/app">
-            <Switch>
-              <Route path="/" component={Dashboard} />
-              <Route path="/upload" component={Upload} />
-              <Route path="/tax-summary" component={TaxSummary} />
-              <Route path="/chat" component={Chat} />
-              <Route path="/itr-export" component={ItrExport} />
-              <Route component={NotFound} />
-            </Switch>
+            <InnerAppRoutes />
           </WouterRouter>
         </AppLayout>
       </SignedIn>
@@ -66,10 +74,63 @@ function ProtectedApp() {
   );
 }
 
+// Separated so AnimatePresence can track route changes
+function InnerAppRoutes() {
+  const [location] = useLocation();
+  return (
+    <AnimatePresence mode="wait">
+      <Switch key={location}>
+        <Route path="/">
+          {() => <PageTransition><Dashboard /></PageTransition>}
+        </Route>
+        <Route path="/upload">
+          {() => <PageTransition><Upload /></PageTransition>}
+        </Route>
+        <Route path="/tax-summary">
+          {() => <PageTransition><TaxSummary /></PageTransition>}
+        </Route>
+        <Route path="/chat">
+          {() => <PageTransition><Chat /></PageTransition>}
+        </Route>
+        <Route path="/itr-export">
+          {() => <PageTransition><ItrExport /></PageTransition>}
+        </Route>
+        <Route component={NotFound} />
+      </Switch>
+    </AnimatePresence>
+  );
+}
+
+// No-auth inner routes
+function NoAuthAppRoutes() {
+  const [location] = useLocation();
+  return (
+    <AnimatePresence mode="wait">
+      <Switch key={location}>
+        <Route path="/">
+          {() => <PageTransition><Dashboard /></PageTransition>}
+        </Route>
+        <Route path="/upload">
+          {() => <PageTransition><Upload /></PageTransition>}
+        </Route>
+        <Route path="/tax-summary">
+          {() => <PageTransition><TaxSummary /></PageTransition>}
+        </Route>
+        <Route path="/chat">
+          {() => <PageTransition><Chat /></PageTransition>}
+        </Route>
+        <Route path="/itr-export">
+          {() => <PageTransition><ItrExport /></PageTransition>}
+        </Route>
+        <Route component={NotFound} />
+      </Switch>
+    </AnimatePresence>
+  );
+}
+
 function Router() {
   const { isLoaded } = useUser();
 
-  // Wait for Clerk before rendering any route — prevents flash of wrong content
   if (!isLoaded) return <ClerkLoadingScreen />;
 
   return (
@@ -79,7 +140,6 @@ function Router() {
       <Route path="/sign-up" component={Register} />
       <Route path="/login">{() => <Redirect to="/sign-in" />}</Route>
       <Route path="/register">{() => <Redirect to="/sign-up" />}</Route>
-      {/* Convenience redirects — typing /itr-export etc. forwards to the real route */}
       <Route path="/itr-export">{() => <Redirect to="/app/itr-export" />}</Route>
       <Route path="/tax-summary">{() => <Redirect to="/app/tax-summary" />}</Route>
       <Route path="/upload">{() => <Redirect to="/app/upload" />}</Route>
@@ -102,12 +162,12 @@ function AppWithClerk() {
     >
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
-          <AuthProvider>
+          <ClerkAuthProvider>
             <WouterRouter base="">
               <Router />
             </WouterRouter>
             <Toaster />
-          </AuthProvider>
+          </ClerkAuthProvider>
         </TooltipProvider>
       </QueryClientProvider>
     </ClerkProvider>
@@ -118,30 +178,33 @@ function AppWithoutClerk() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <WouterRouter base="">
-          <Switch>
-            <Route path="/" component={Landing} />
-            <Route path="/app/:rest*">
-              {() => (
-                <AppLayout>
-                  <WouterRouter base="/app">
-                    <Switch>
-                      <Route path="/" component={Dashboard} />
-                      <Route path="/upload" component={Upload} />
-                      <Route path="/tax-summary" component={TaxSummary} />
-                      <Route path="/chat" component={Chat} />
-                      <Route path="/itr-export" component={ItrExport} />
-                      <Route component={NotFound} />
-                    </Switch>
-                  </WouterRouter>
-                </AppLayout>
-              )}
-            </Route>
-            <Route path="/app" component={Dashboard} />
-            <Route component={NotFound} />
-          </Switch>
-        </WouterRouter>
-        <Toaster />
+        <DemoAuthProvider>
+          <WouterRouter base="">
+            <Switch>
+              <Route path="/" component={Landing} />
+              <Route path="/app/:rest*">
+                {() => (
+                  <AppLayout>
+                    <WouterRouter base="/app">
+                      <NoAuthAppRoutes />
+                    </WouterRouter>
+                  </AppLayout>
+                )}
+              </Route>
+              <Route path="/app">
+                {() => (
+                  <AppLayout>
+                    <WouterRouter base="/app">
+                      <NoAuthAppRoutes />
+                    </WouterRouter>
+                  </AppLayout>
+                )}
+              </Route>
+              <Route component={NotFound} />
+            </Switch>
+          </WouterRouter>
+          <Toaster />
+        </DemoAuthProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );
